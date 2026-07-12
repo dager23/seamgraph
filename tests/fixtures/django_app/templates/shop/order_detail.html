@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Order #{{ pk }}</h1>
+<p>API Key: {{ api_key }}</p>
+<a href="{% url 'order-invoice' pk %}">View Invoice</a>
+{% endblock %}

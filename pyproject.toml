@@ -1,0 +1,102 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "seamgraph"
+version = "0.1.0"
+description = "A deterministic graph of your repo's seams: the string-typed references that connect code to configs, templates, frontend calls, CI, and .env - served to coding agents via MCP and CLI."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Yash Shah" }]
+keywords = [
+    "mcp",
+    "coding-agents",
+    "context",
+    "code-graph",
+    "cross-artifact",
+    "impact-analysis",
+    "env-vars",
+    "routes",
+    "co-change",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pyyaml>=6.0",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.urls]
+Homepage = "https://github.com/yshah-afk/seamgraph"
+Changelog = "https://github.com/yshah-afk/seamgraph/blob/main/CHANGELOG.md"
+
+[project.scripts]
+seamgraph = "seamgraph.cli:main"
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2"]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "mypy>=1.10",
+    "ruff>=0.6",
+    "types-PyYAML",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/seamgraph"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["seamgraph"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+mypy_path = "src"
+packages = ["seamgraph"]
+
+[[tool.mypy.overrides]]
+module = "tomli"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mcp.*"
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",      # pycodestyle/pyflakes
+    "I",                # isort
+    "UP",               # pyupgrade
+    "B",                # bugbear
+    "C4",               # comprehensions
+    "SIM",              # simplify
+    "RUF",
+]
+ignore = [
+    "SIM108",  # ternary preference — readability call left to authors
+]
