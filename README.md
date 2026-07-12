@@ -83,9 +83,10 @@ Every seam edge passes through two quality gates:
    `env:` key in a YAML manifest. Never bare string grep.
 
 2. **Gate B (co-change corroboration):** Git history mining scores file pairs
-   by how often they change together (Jaccard confidence). Static seams with
-   co-change support above threshold are upgraded from `anchored` to
-   `corroborated`.
+   by how often they change together (directional confidence:
+   `support / min(changes_a, changes_b)`, as in the change-coupling
+   literature). Static seams with co-change support above threshold are
+   upgraded from `anchored` to `corroborated`.
 
 ### Edge grades
 

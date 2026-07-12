@@ -1,8 +1,11 @@
 """Co-change mining from ``git log``.
 
 Mines file-pair co-occurrence across commits (how often two files change
-together), yielding support (absolute count) and confidence (fraction of
-commits touching file A that also touched file B, Jaccard-style).
+together), yielding support (absolute count) and confidence: the fraction of
+the less-frequently-changed file's commits that also touched the other file
+(``support / min(changes_a, changes_b)`` — directional confidence, as in the
+change-coupling literature). Jaccard was rejected: hub files with huge change
+counts (settings.py) would drown genuine coupling in the union term.
 
 Usage:
 - *Corroboration*: anchored seams with co-change support above threshold get
@@ -26,7 +29,7 @@ class CochangePair:
     path_a: str  # lexicographically first
     path_b: str
     support: int  # number of commits both appeared in
-    confidence: float  # Jaccard: support / (count_a + count_b - support)
+    confidence: float  # directional: support / min(changes_a, changes_b)
 
 
 def mine_cochange(
@@ -98,14 +101,12 @@ def mine_cochange(
                     a, b = b, a
                 pair_count[(a, b)] += 1
 
-    # Build results with Jaccard confidence
+    # Build results with directional confidence
     results: list[CochangePair] = []
     for (a, b), support in sorted(pair_count.items()):
-        count_a = file_count[a]
-        count_b = file_count[b]
-        union = count_a + count_b - support
-        jaccard = support / union if union > 0 else 0.0
-        results.append(CochangePair(a, b, support, round(jaccard, 4)))
+        smaller = min(file_count[a], file_count[b])
+        confidence = support / smaller if smaller > 0 else 0.0
+        results.append(CochangePair(a, b, support, round(confidence, 4)))
 
     return results
 

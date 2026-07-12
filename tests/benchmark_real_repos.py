@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from seamgraph.cochange import corroborate_seams, discover_statistical, mine_cochange
 from seamgraph.config import Config
 from seamgraph.extract.configs import extract_config_file
+from seamgraph.extract.file_routes import extract_file_routes
 from seamgraph.extract.js_ts import extract_js_ts
 from seamgraph.extract.python_code import PyFileFacts, extract_python, resolve_routes
 from seamgraph.extract.templates import extract_template_file, extract_template_refs
@@ -138,6 +139,7 @@ def benchmark_repo(root: Path, name: str, desc: str) -> BenchmarkResult:
             else:
                 all_anchors.extend(extract_js_ts(rel, text))
                 all_anchors.extend(extract_config_file(rel, text))
+                all_anchors.extend(extract_file_routes(rel, text))
                 all_anchors.extend(extract_template_file(rel))
                 all_anchors.extend(extract_template_refs(rel, text))
 

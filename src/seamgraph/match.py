@@ -86,6 +86,13 @@ def match_routes(
     seams: list[Seam] = []
     orphans: list[Orphan] = []
 
+    # first literal segment of every definition ("api", "v2", ...): an
+    # unmatched call only warns when the repo defines routes in the same
+    # family — a call to a service the repo doesn't implement is not a defect
+    def_families = {
+        seg for d in defs for seg in d.key.strip("/").split("/")[:1] if seg not in ("*", "**")
+    }
+
     matched_call_keys: set[int] = set()
 
     for call in calls:
@@ -112,9 +119,9 @@ def match_routes(
                 best_defs.append(defn)
 
         if not best_defs:
-            # warn only when the repo has route definitions at all (a pure
-            # frontend repo calling another service's API is not a defect)
-            orphans.append(Orphan(call, "route-call-unmatched", "warn" if defs else "info"))
+            family = call.key.strip("/").split("/")[:1]
+            severity = "warn" if family and family[0] in def_families else "info"
+            orphans.append(Orphan(call, "route-call-unmatched", severity))
         else:
             matched_call_keys.add(id(call))
             note = f"ambiguous ({len(best_defs)} definitions)" if len(best_defs) > 1 else ""

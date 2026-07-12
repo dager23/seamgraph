@@ -15,6 +15,7 @@ from typing import Any
 from .cochange import corroborate_seams, discover_statistical, mine_cochange
 from .config import Config, load_config
 from .extract.configs import extract_config_file
+from .extract.file_routes import extract_file_routes
 from .extract.js_ts import extract_js_ts
 from .extract.python_code import PyFileFacts, extract_python, resolve_routes
 from .extract.templates import extract_template_file, extract_template_refs
@@ -178,6 +179,7 @@ class SeamGraph:
                 prefixes = self.config.strip_url_prefixes
                 all_anchors.extend(extract_js_ts(rel, text, strip_prefixes=prefixes))
                 all_anchors.extend(extract_config_file(rel, text))
+                all_anchors.extend(extract_file_routes(rel, text))
                 all_anchors.extend(extract_template_file(rel))
                 all_anchors.extend(extract_template_refs(rel, text))
 
