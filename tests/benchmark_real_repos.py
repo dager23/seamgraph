@@ -24,6 +24,7 @@ from pathlib import Path
 # Add src to path for direct execution
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from seamgraph.cochange import corroborate_seams, discover_statistical, mine_cochange
 from seamgraph.config import Config
 from seamgraph.extract.configs import extract_config_file
 from seamgraph.extract.js_ts import extract_js_ts
@@ -31,7 +32,7 @@ from seamgraph.extract.python_code import PyFileFacts, extract_python, resolve_r
 from seamgraph.extract.templates import extract_template_file, extract_template_refs
 from seamgraph.fswalk import list_files, read_text
 from seamgraph.match import match_all
-from seamgraph.models import Anchor
+from seamgraph.models import Anchor, Seam
 
 # 20 popular OSS full-stack repos covering diverse frameworks
 # (name, github org/repo, description)
@@ -81,19 +82,32 @@ class BenchmarkResult:
     total_anchors: int
     total_seams: int
     total_orphans: int
+    total_discoveries: int = 0
     error: str | None = None
 
 
 def clone_repo(repo: dict[str, str], bench_dir: Path) -> Path | None:
-    """Shallow-clone a repo. Returns path or None on failure."""
+    """Clone a repo with 300 commits of history but no historical blobs.
+
+    ``--filter=blob:none`` keeps the clone small while ``git log --name-only``
+    (all the co-change miner needs) still works over the 300-commit window.
+    """
     dest = bench_dir / repo["name"]
     if dest.exists():
         return dest
     try:
         subprocess.run(
-            ["git", "clone", "--depth=1", "--single-branch", repo["url"], str(dest)],
+            [
+                "git",
+                "clone",
+                "--depth=300",
+                "--single-branch",
+                "--filter=blob:none",
+                repo["url"],
+                str(dest),
+            ],
             capture_output=True,
-            timeout=120,
+            timeout=600,
             check=True,
         )
         return dest
@@ -133,6 +147,52 @@ def benchmark_repo(root: Path, name: str, desc: str) -> BenchmarkResult:
         # Match
         seams, orphans = match_all(all_anchors)
 
+        # Co-change grading over the cloned history window
+        anchor_paths = {a.path for a in all_anchors}
+        cochange = mine_cochange(
+            root,
+            max_commits=config.max_commits,
+            max_files_per_commit=config.max_files_per_commit,
+            paths=anchor_paths,
+        )
+        seam_file_pairs = {
+            (min(s.use.path, s.definition.path), max(s.use.path, s.definition.path))
+            for s in seams
+            if s.use.path != s.definition.path
+        }
+        corroborated = corroborate_seams(
+            seam_file_pairs,
+            cochange,
+            min_support=config.corroborate_support,
+            min_confidence=config.corroborate_confidence,
+        )
+        graded: list[Seam] = []
+        for s in seams:
+            pair = (min(s.use.path, s.definition.path), max(s.use.path, s.definition.path))
+            if pair in corroborated:
+                cc = corroborated[pair]
+                graded.append(
+                    Seam(
+                        s.kind,
+                        s.key,
+                        s.use,
+                        s.definition,
+                        grade="corroborated",
+                        cochange_support=cc.support,
+                        cochange_confidence=cc.confidence,
+                        note=s.note,
+                    )
+                )
+            else:
+                graded.append(s)
+        seams = graded
+        discoveries = discover_statistical(
+            cochange,
+            seam_file_pairs,
+            min_support=config.discover_support,
+            min_confidence=config.discover_confidence,
+        )
+
         elapsed = time.monotonic() - t0
 
         # Aggregate stats
@@ -162,13 +222,22 @@ def benchmark_repo(root: Path, name: str, desc: str) -> BenchmarkResult:
             total_anchors=len(all_anchors),
             total_seams=len(seams),
             total_orphans=len(orphans),
+            total_discoveries=len(discoveries),
         )
     except Exception as e:
         elapsed = time.monotonic() - t0
         return BenchmarkResult(
-            name=name, desc=desc, files_scanned=0, time_seconds=round(elapsed, 2),
-            anchors_by_kind={}, seams_by_kind={}, seams_by_grade={},
-            orphans_by_problem={}, total_anchors=0, total_seams=0, total_orphans=0,
+            name=name,
+            desc=desc,
+            files_scanned=0,
+            time_seconds=round(elapsed, 2),
+            anchors_by_kind={},
+            seams_by_kind={},
+            seams_by_grade={},
+            orphans_by_problem={},
+            total_anchors=0,
+            total_seams=0,
+            total_orphans=0,
             error=str(e),
         )
 
@@ -179,19 +248,28 @@ def run_benchmarks(keep: bool = False) -> list[BenchmarkResult]:
     results: list[BenchmarkResult] = []
 
     for repo in REPOS:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"  {repo['name']}: {repo['desc']}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         root = clone_repo(repo, bench_dir)
         if root is None:
-            results.append(BenchmarkResult(
-                name=repo["name"], desc=repo["desc"], files_scanned=0,
-                time_seconds=0, anchors_by_kind={}, seams_by_kind={},
-                seams_by_grade={}, orphans_by_problem={},
-                total_anchors=0, total_seams=0, total_orphans=0,
-                error="clone failed",
-            ))
+            results.append(
+                BenchmarkResult(
+                    name=repo["name"],
+                    desc=repo["desc"],
+                    files_scanned=0,
+                    time_seconds=0,
+                    anchors_by_kind={},
+                    seams_by_kind={},
+                    seams_by_grade={},
+                    orphans_by_problem={},
+                    total_anchors=0,
+                    total_seams=0,
+                    total_orphans=0,
+                    error="clone failed",
+                )
+            )
             continue
 
         result = benchmark_repo(root, repo["name"], repo["desc"])
@@ -226,30 +304,36 @@ def write_report(results: list[BenchmarkResult], out_path: Path) -> None:
         "",
         "## Summary Table",
         "",
-        "| Repo | Description | Files | Anchors | Seams | Orphans | Time (s) |",
-        "|------|-------------|------:|--------:|------:|--------:|---------:|",
+        "| Repo | Description | Files | Anchors | Seams | Corroborated | Discoveries | Time (s) |",
+        "|------|-------------|------:|--------:|------:|-------------:|------------:|---------:|",
     ]
-    totals = {"files": 0, "anchors": 0, "seams": 0, "orphans": 0}
+    totals = {"files": 0, "anchors": 0, "seams": 0, "corroborated": 0, "discoveries": 0}
     for r in results:
         if r.error:
-            lines.append(f"| {r.name} | {r.desc} | — | — | — | — | X {r.error} |")
+            lines.append(f"| {r.name} | {r.desc} | — | — | — | — | — | X {r.error} |")
         else:
+            corroborated = r.seams_by_grade.get("corroborated", 0)
             lines.append(
                 f"| {r.name} | {r.desc} | {r.files_scanned:,} | {r.total_anchors:,} | "
-                f"{r.total_seams:,} | {r.total_orphans:,} | {r.time_seconds} |"
+                f"{r.total_seams:,} | {corroborated:,} | {r.total_discoveries:,} | "
+                f"{r.time_seconds} |"
             )
             totals["files"] += r.files_scanned
             totals["anchors"] += r.total_anchors
             totals["seams"] += r.total_seams
-            totals["orphans"] += r.total_orphans
+            totals["corroborated"] += corroborated
+            totals["discoveries"] += r.total_discoveries
 
-    lines.extend([
-        f"| **Total** | | **{totals['files']:,}** | **{totals['anchors']:,}** | "
-        f"**{totals['seams']:,}** | **{totals['orphans']:,}** | |",
-        "",
-        "## Seams by Kind (aggregated)",
-        "",
-    ])
+    lines.extend(
+        [
+            f"| **Total** | | **{totals['files']:,}** | **{totals['anchors']:,}** | "
+            f"**{totals['seams']:,}** | **{totals['corroborated']:,}** | "
+            f"**{totals['discoveries']:,}** | |",
+            "",
+            "## Seams by Kind (aggregated)",
+            "",
+        ]
+    )
 
     kind_totals: dict[str, int] = {}
     for r in results:
@@ -330,6 +414,7 @@ def main() -> None:
                     "total_anchors": r.total_anchors,
                     "total_seams": r.total_seams,
                     "total_orphans": r.total_orphans,
+                    "total_discoveries": r.total_discoveries,
                     "anchors_by_kind": r.anchors_by_kind,
                     "seams_by_kind": r.seams_by_kind,
                     "seams_by_grade": r.seams_by_grade,

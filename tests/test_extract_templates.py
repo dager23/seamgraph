@@ -1,4 +1,5 @@
 """Tests for template extractor."""
+
 from __future__ import annotations
 
 from seamgraph.extract.templates import extract_template_file, extract_template_refs

@@ -1,7 +1,65 @@
 """Tests for the co-change mining module."""
+
 from __future__ import annotations
 
-from seamgraph.cochange import CochangePair, corroborate_seams, discover_statistical
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from seamgraph.cochange import (
+    CochangePair,
+    corroborate_seams,
+    discover_statistical,
+    mine_cochange,
+)
+
+
+def _git(root: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args],
+        cwd=root,
+        capture_output=True,
+        check=True,
+        timeout=30,
+    )
+
+
+class TestMine:
+    @pytest.fixture()
+    def repo(self, tmp_path: Path) -> Path:
+        _git(tmp_path, "init", "-b", "main")
+        (tmp_path / "api.py").write_text("# v0\n")
+        (tmp_path / "web.ts").write_text("// v0\n")
+        (tmp_path / "other.py").write_text("# v0\n")
+        _git(tmp_path, "add", "-A")
+        _git(tmp_path, "commit", "-m", "init")
+        # api.py and web.ts co-change three times; other.py changes alone once
+        for i in range(1, 4):
+            (tmp_path / "api.py").write_text(f"# v{i}\n")
+            (tmp_path / "web.ts").write_text(f"// v{i}\n")
+            _git(tmp_path, "add", "-A")
+            _git(tmp_path, "commit", "-m", f"change {i}")
+        (tmp_path / "other.py").write_text("# v1\n")
+        _git(tmp_path, "add", "-A")
+        _git(tmp_path, "commit", "-m", "solo change")
+        return tmp_path
+
+    def test_mine_real_repo(self, repo: Path) -> None:
+        pairs = {(p.path_a, p.path_b): p for p in mine_cochange(repo)}
+        assert ("api.py", "web.ts") in pairs
+        got = pairs[("api.py", "web.ts")]
+        # 3 co-changes + the init commit where all three files appeared
+        assert got.support == 4
+        assert got.confidence > 0.5
+
+    def test_mine_paths_filter(self, repo: Path) -> None:
+        pairs = mine_cochange(repo, paths={"api.py", "web.ts"})
+        keys = {(p.path_a, p.path_b) for p in pairs}
+        assert keys == {("api.py", "web.ts")}
+
+    def test_mine_non_git_dir(self, tmp_path: Path) -> None:
+        assert mine_cochange(tmp_path) == []
 
 
 class TestCorroborate:

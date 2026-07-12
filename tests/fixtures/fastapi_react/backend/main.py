@@ -1,4 +1,5 @@
 """FastAPI app with routes, env reads, and Celery tasks for testing."""
+
 import os
 
 from fastapi import APIRouter, FastAPI

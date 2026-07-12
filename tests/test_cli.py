@@ -1,4 +1,5 @@
 """Tests for the CLI module."""
+
 from __future__ import annotations
 
 from seamgraph.cli import build_parser

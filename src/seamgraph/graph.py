@@ -122,9 +122,12 @@ class SeamGraph:
         """
         conn = self._connect()
         stats: dict[str, Any] = {
-            "files_scanned": 0, "files_changed": 0,
-            "anchors": 0, "seams": 0,
-            "orphans": 0, "discoveries": 0,
+            "files_scanned": 0,
+            "files_changed": 0,
+            "anchors": 0,
+            "seams": 0,
+            "orphans": 0,
+            "discoveries": 0,
         }
 
         files = list_files(self.root, exclude=self.config.exclude)
@@ -173,9 +176,7 @@ class SeamGraph:
                 py_facts[rel] = extract_python(rel, text)
             else:
                 prefixes = self.config.strip_url_prefixes
-                all_anchors.extend(
-                    extract_js_ts(rel, text, strip_prefixes=prefixes)
-                )
+                all_anchors.extend(extract_js_ts(rel, text, strip_prefixes=prefixes))
                 all_anchors.extend(extract_config_file(rel, text))
                 all_anchors.extend(extract_template_file(rel))
                 all_anchors.extend(extract_template_refs(rel, text))
@@ -219,7 +220,10 @@ class SeamGraph:
             if cc:
                 graded_seams.append(
                     Seam(
-                        s.kind, s.key, s.use, s.definition,
+                        s.kind,
+                        s.key,
+                        s.use,
+                        s.definition,
                         grade="corroborated",
                         cochange_support=cc.support,
                         cochange_confidence=cc.confidence,
@@ -237,8 +241,7 @@ class SeamGraph:
             min_confidence=self.config.discover_confidence,
         )
         discoveries = [
-            Discovery(cc.path_a, cc.path_b, cc.support, cc.confidence)
-            for cc in statistical
+            Discovery(cc.path_a, cc.path_b, cc.support, cc.confidence) for cc in statistical
         ]
 
         stats["seams"] = len(graded_seams)
@@ -277,9 +280,14 @@ class SeamGraph:
             conn.execute(
                 sql,
                 (
-                    s.kind.value, s.key, use_id, def_id,
-                    s.grade, s.cochange_support,
-                    s.cochange_confidence, s.note,
+                    s.kind.value,
+                    s.key,
+                    use_id,
+                    def_id,
+                    s.grade,
+                    s.cochange_support,
+                    s.cochange_confidence,
+                    s.note,
                 ),
             )
 
@@ -401,6 +409,7 @@ class SeamGraph:
         conn.close()
 
         from collections import defaultdict
+
         table: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(
             lambda: {"definitions": [], "reads": []}
         )
@@ -429,6 +438,7 @@ class SeamGraph:
         conn.close()
 
         from collections import defaultdict
+
         table: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(
             lambda: {"definitions": [], "calls": []}
         )

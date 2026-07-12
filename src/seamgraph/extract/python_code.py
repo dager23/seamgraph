@@ -12,7 +12,9 @@ facts; :func:`resolve_routes` combines them into final ROUTE_DEF anchors.
 from __future__ import annotations
 
 import ast
+import contextlib
 import re
+import warnings
 from dataclasses import dataclass, field
 
 from ..models import Anchor, AnchorKind
@@ -198,8 +200,7 @@ class _Visitor(ast.NodeVisitor):
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._class_stack.append(node.name)
         base_names = {
-            b.attr if isinstance(b, ast.Attribute) else getattr(b, "id", "")
-            for b in node.bases
+            b.attr if isinstance(b, ast.Attribute) else getattr(b, "id", "") for b in node.bases
         }
         if "BaseSettings" in base_names:
             self._pydantic_settings(node)
@@ -216,12 +217,8 @@ class _Visitor(ast.NodeVisitor):
                         prefix = _kw_str(stmt.value, "env_prefix") or ""
             if isinstance(stmt, ast.ClassDef) and stmt.name == "Config":
                 for s2 in stmt.body:
-                    if (
-                        isinstance(s2, ast.Assign)
-                        and any(
-                            isinstance(t, ast.Name) and t.id == "env_prefix"
-                            for t in s2.targets
-                        )
+                    if isinstance(s2, ast.Assign) and any(
+                        isinstance(t, ast.Name) and t.id == "env_prefix" for t in s2.targets
                     ):
                         prefix = _lit(s2.value) or prefix
         for stmt in node.body:
@@ -617,29 +614,30 @@ def _kw_str_list(call: ast.Call, name: str) -> list[str]:
 
 
 def _is_include_call(node: ast.Call) -> bool:
-    return any(
-        isinstance(a, ast.Call) and _chain(a.func)[-1:] == ["include"] for a in node.args
-    )
+    return any(isinstance(a, ast.Call) and _chain(a.func)[-1:] == ["include"] for a in node.args)
 
 
 def _is_settings_module(path: str) -> bool:
     parts = path.split("/")
     base = parts[-1]
     return (
-        (base in ("settings.py", "base.py", "local.py", "production.py", "dev.py")
-        and ("settings" in parts[:-1] or base == "settings.py"))
-        or (base.startswith("settings")
-        and base.endswith(".py"))
-    )
+        base in ("settings.py", "base.py", "local.py", "production.py", "dev.py")
+        and ("settings" in parts[:-1] or base == "settings.py")
+    ) or (base.startswith("settings") and base.endswith(".py"))
 
 
 def extract_python(path: str, source: str) -> PyFileFacts:
     facts = PyFileFacts()
     try:
-        tree = ast.parse(source)
-    except SyntaxError:
+        with warnings.catch_warnings():
+            # third-party code full of invalid escape sequences is not our problem
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(source)
+    except (SyntaxError, ValueError):
         return facts
-    _Visitor(path, facts).visit(tree)
+    # pathologically nested generated code: keep whatever was extracted
+    with contextlib.suppress(RecursionError):
+        _Visitor(path, facts).visit(tree)
     return facts
 
 

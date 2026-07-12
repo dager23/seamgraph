@@ -1,4 +1,5 @@
 """Flask app for testing."""
+
 import os
 
 from flask import Flask, redirect, render_template, url_for

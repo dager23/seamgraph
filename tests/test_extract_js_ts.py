@@ -1,4 +1,5 @@
 """Tests for the JS/TS extractor."""
+
 from __future__ import annotations
 
 from seamgraph.extract.js_ts import extract_js_ts

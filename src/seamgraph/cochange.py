@@ -139,12 +139,26 @@ def corroborate_seams(
 
 _ARTIFACT_CLASSES: dict[str, str] = {
     ".py": "python",
-    ".js": "js", ".jsx": "js", ".ts": "js", ".tsx": "js",
-    ".mjs": "js", ".cjs": "js", ".vue": "js", ".svelte": "js",
-    ".yml": "config", ".yaml": "config", ".toml": "config", ".json": "config",
-    ".ini": "config", ".cfg": "config", ".env": "config",
-    ".html": "template", ".htm": "template", ".jinja": "template",
-    ".jinja2": "template", ".j2": "template",
+    ".js": "js",
+    ".jsx": "js",
+    ".ts": "js",
+    ".tsx": "js",
+    ".mjs": "js",
+    ".cjs": "js",
+    ".vue": "js",
+    ".svelte": "js",
+    ".yml": "config",
+    ".yaml": "config",
+    ".toml": "config",
+    ".json": "config",
+    ".ini": "config",
+    ".cfg": "config",
+    ".env": "config",
+    ".html": "template",
+    ".htm": "template",
+    ".jinja": "template",
+    ".jinja2": "template",
+    ".j2": "template",
 }
 
 

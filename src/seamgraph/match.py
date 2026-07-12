@@ -44,9 +44,7 @@ def _exact_match(
     for u in uses:
         candidates = defs_by_key.get(u.key)
         if not candidates:
-            orphans.append(
-                Orphan(u, f"{seam_kind.value}-use-unmatched", use_unmatched_severity)
-            )
+            orphans.append(Orphan(u, f"{seam_kind.value}-use-unmatched", use_unmatched_severity))
             continue
         used_keys.add(u.key)
         note = f"ambiguous ({len(candidates)} definitions)" if len(candidates) > 1 else ""
@@ -55,9 +53,7 @@ def _exact_match(
 
     for d in defs:
         if d.key not in used_keys:
-            orphans.append(
-                Orphan(d, f"{seam_kind.value}-def-unused", "info")
-            )
+            orphans.append(Orphan(d, f"{seam_kind.value}-def-unused", "info"))
 
     return seams, orphans
 
@@ -164,10 +160,7 @@ def match_templates(anchors: list[Anchor]) -> tuple[list[Seam], list[Orphan]]:
         candidates = files_by_key.get(ref.key)
         if candidates is None:
             # try suffix match: "checkout.html" matches "shop/checkout.html"
-            candidates = [
-                f for f in files
-                if f.key.endswith("/" + ref.key) or f.key == ref.key
-            ]
+            candidates = [f for f in files if f.key.endswith("/" + ref.key) or f.key == ref.key]
         if not candidates:
             # try basename match
             basename = ref.key.rsplit("/", 1)[-1]
@@ -203,9 +196,7 @@ _BUILTIN_URLNAMES = frozenset({"static", "media", "admin:index"})
 
 def match_urlnames(anchors: list[Anchor]) -> tuple[list[Seam], list[Orphan]]:
     refs = [
-        a
-        for a in anchors
-        if a.kind is AnchorKind.URLNAME_REF and a.key not in _BUILTIN_URLNAMES
+        a for a in anchors if a.kind is AnchorKind.URLNAME_REF and a.key not in _BUILTIN_URLNAMES
     ]
     defs = [a for a in anchors if a.kind is AnchorKind.URLNAME_DEF]
     return _exact_match(refs, defs, SeamKind.URLNAME)
@@ -238,8 +229,7 @@ def match_tasks(anchors: list[Anchor]) -> tuple[list[Seam], list[Orphan]]:
         if not candidates:
             # suffix match
             candidates = [
-                d for d in defs
-                if d.key.endswith("." + c.key) or c.key.endswith("." + d.key)
+                d for d in defs if d.key.endswith("." + c.key) or c.key.endswith("." + d.key)
             ]
         if not candidates:
             orphans.append(Orphan(c, "task-call-unmatched", "warn" if defs else "info"))

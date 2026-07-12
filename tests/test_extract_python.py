@@ -1,4 +1,5 @@
 """Tests for the Python code extractor."""
+
 from __future__ import annotations
 
 from seamgraph.extract.python_code import extract_python, resolve_routes

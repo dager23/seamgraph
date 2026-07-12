@@ -1,4 +1,5 @@
 """Django views for testing."""
+
 from django.conf import settings
 from django.shortcuts import redirect, render
 from django.urls import reverse

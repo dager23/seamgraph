@@ -34,7 +34,6 @@ def fastapi_graph(tmp_path_factory: pytest.TempPathFactory) -> SeamGraph:
 
 
 class TestFastapiReact:
-
     def test_no_anchor_duplication(self, fastapi_graph: SeamGraph) -> None:
         # regression: DATABASE_URL is read exactly once in backend/main.py
         reads = [
@@ -84,9 +83,7 @@ class TestFastapiReact:
 
     def test_unknown_route_is_orphan_warn(self, fastapi_graph: SeamGraph) -> None:
         orphans = fastapi_graph.query_orphans(severity="warn")
-        settings_orphans = [
-            o for o in orphans if o["problem"] == "route-call-unmatched"
-        ]
+        settings_orphans = [o for o in orphans if o["problem"] == "route-call-unmatched"]
         assert len(settings_orphans) == 1
         assert settings_orphans[0]["key"] == "/api/v1/settings"
 
@@ -110,7 +107,6 @@ def flask_graph(tmp_path_factory: pytest.TempPathFactory) -> SeamGraph:
 
 
 class TestFlaskApp:
-
     def test_template_seams(self, flask_graph: SeamGraph) -> None:
         seams = flask_graph.query_seams(kind="template")
         keys = sorted(s["key"] for s in seams)
@@ -135,7 +131,6 @@ def django_graph(tmp_path_factory: pytest.TempPathFactory) -> SeamGraph:
 
 
 class TestDjangoApp:
-
     def test_urlname_seams(self, django_graph: SeamGraph) -> None:
         seams = django_graph.query_seams(kind="urlname")
         by_key: dict[str, int] = {}

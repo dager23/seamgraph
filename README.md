@@ -27,8 +27,17 @@ indexes these seams once, deterministically, and serves the answer in one call.
 ## Installation
 
 ```bash
-pip install seamgraph          # core (CLI)
-pip install seamgraph[mcp]     # + MCP server
+pip install seamgraph            # core (CLI)
+pip install "seamgraph[mcp]"     # + MCP server for coding agents
+```
+
+Requires Python 3.10+. `git` is optional: without it, file discovery falls back
+to a filtered walk and co-change grading is skipped (all seams stay `anchored`).
+
+### Connect to Claude Code (or any MCP client)
+
+```bash
+claude mcp add seamgraph -- python -m seamgraph.cli --root /path/to/repo serve
 ```
 
 ## Quick start
@@ -74,9 +83,9 @@ Every seam edge passes through two quality gates:
    `env:` key in a YAML manifest. Never bare string grep.
 
 2. **Gate B (co-change corroboration):** Git history mining scores file pairs
-   by how often they change together. Static seams with co-change support above
-   threshold are upgraded from `anchored` to `corroborated`. File pairs with
-   high co-change but no static edge are surfaced as `statistical` discoveries.
+   by how often they change together (Jaccard confidence). Static seams with
+   co-change support above threshold are upgraded from `anchored` to
+   `corroborated`.
 
 ### Edge grades
 
@@ -84,7 +93,12 @@ Every seam edge passes through two quality gates:
 |---|---|
 | `anchored` | Both endpoints extracted by framework-aware patterns |
 | `corroborated` | Anchored + confirmed by git co-change history |
-| `statistical` | No static edge, but files co-change suspiciously often |
+
+Separately from graded seams, **discoveries** are *cross-artifact* file pairs
+(e.g. a `.py` and a `.ts` file) that co-change suspiciously often but have no
+static seam we can see — surfaced by `seamgraph map` as leads, never asserted
+as edges. Same-class pairs (two Python files) are deliberately excluded: that
+is ordinary import coupling, already visible to LSP and code-graph tools.
 
 ### Extractors
 
@@ -140,8 +154,11 @@ discover_confidence = 0.5
 - **Reverse-proxy/base-URL prefixes:** Configurable via `strip_url_prefixes`.
 - **JS/TS extraction:** Anchored regex in v0.1 (honest about it; tree-sitter
   extra planned for v0.2).
-- **Generic identifier layer:** OFF by default; only co-change-gated to avoid
-  false positives.
+- **No generic string matching:** seamgraph never links two files just because
+  they share an identifier. Everything is either pattern-anchored on both ends
+  or reported as a statistical *discovery* with its co-change evidence attached.
+- **Env reads with no in-repo definition are informational**, never warnings —
+  variables legitimately come from the deployment environment.
 
 ## License
 

@@ -20,6 +20,7 @@ try:
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
     from mcp.types import TextContent, Tool
+
     HAS_MCP = True
 except ImportError:
     HAS_MCP = False
@@ -38,7 +39,7 @@ def create_server(root: Path) -> Any:
 
     server = Server("seamgraph")
 
-    @server.list_tools()  # type: ignore[untyped-decorator]
+    @server.list_tools()  # type: ignore[untyped-decorator, no-untyped-call]
     async def list_tools() -> list[Tool]:
         return [
             Tool(
@@ -173,9 +174,14 @@ def create_server(root: Path) -> Any:
 
 
 def run_server(root: Path) -> None:
-    """Run the MCP server on stdio."""
+    """Run the MCP server on stdio.
+
+    The repository is indexed (incrementally) at startup so every tool answers
+    from a fresh graph; the ``check`` tool re-indexes on demand mid-session.
+    """
     import asyncio
 
+    api.index(root)
     server = create_server(root)
 
     async def _run() -> None:

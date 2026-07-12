@@ -1,4 +1,5 @@
 """Tests for config file extractors."""
+
 from __future__ import annotations
 
 from seamgraph.extract.configs import (

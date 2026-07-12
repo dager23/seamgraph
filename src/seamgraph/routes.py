@@ -56,9 +56,10 @@ def normalize_backend(path: str, framework: str) -> RoutePattern:
     """Normalize a backend route path. ``framework``: fastapi|flask|django|express."""
     segs: list[str] = []
     for seg in _split(path):
-        if (framework in ("fastapi", "flask", "django") and (
-            _FASTAPI_PARAM.match(seg) or _FLASK_PARAM.match(seg)
-        )) or (framework == "express" and _EXPRESS_PARAM.match(seg)):
+        if (
+            framework in ("fastapi", "flask", "django")
+            and (_FASTAPI_PARAM.match(seg) or _FLASK_PARAM.match(seg))
+        ) or (framework == "express" and _EXPRESS_PARAM.match(seg)):
             segs.append(PARAM)
         elif ("{" in seg and "}" in seg) or ("<" in seg and ">" in seg):
             # mixed segment like "v{version}" or "item-<id>"

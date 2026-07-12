@@ -31,8 +31,7 @@ def _is_env_file(path: str) -> bool:
     return (
         base == ".env"
         or base.startswith(".env.")
-        or (base.endswith(".env")
-        and base != ".env")
+        or (base.endswith(".env") and base != ".env")
         or base in (".env.example", ".env.sample", "env.example")
     )
 

@@ -1,4 +1,5 @@
 """Tests for the kind-specific matchers."""
+
 from __future__ import annotations
 
 from seamgraph.match import (

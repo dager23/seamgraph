@@ -1,4 +1,5 @@
 """Tests for the route normalization and matching module."""
+
 from __future__ import annotations
 
 from seamgraph.routes import RoutePattern, match_route, normalize_backend, normalize_call
@@ -43,7 +44,9 @@ class TestNormalizeCall:
         assert p.segments == ("api", "users", "**")
 
     def test_strip_prefix(self) -> None:
-        p = normalize_call("http://localhost:8000/api/users", strip_prefixes=("http://localhost:8000",))
+        p = normalize_call(
+            "http://localhost:8000/api/users", strip_prefixes=("http://localhost:8000",)
+        )
         assert p is not None
         assert p.segments == ("api", "users")
 

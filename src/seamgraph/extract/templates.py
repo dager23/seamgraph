@@ -13,9 +13,7 @@ import re
 
 from ..models import Anchor, AnchorKind
 
-_TEMPLATE_EXTS = frozenset(
-    {".html", ".htm", ".jinja", ".jinja2", ".j2", ".xml", ".txt", ".svg"}
-)
+_TEMPLATE_EXTS = frozenset({".html", ".htm", ".jinja", ".jinja2", ".j2", ".xml", ".txt", ".svg"})
 _TEMPLATE_DIRS = ("templates", "template", "partials", "layouts", "emails")
 
 _URL_TAG = re.compile(

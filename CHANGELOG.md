@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   `--json` output.
 - **MCP server**: 7 tools (`seam_map`, `seams_for`, `impact`, `verify`,
   `env_table`, `route_table`, `check`) via stdio.
-- **Edge grading**: `anchored` → `corroborated` → `statistical`.
-- **Orphan detection**: Unmatched route calls, undefined env vars, missing
-  templates.
+- **Edge grading**: `anchored` → `corroborated`; separate cross-artifact
+  co-change *discoveries* (never asserted as edges).
+- **Orphan detection** with evidence-gated severities: unmatched route calls
+  and missing templates warn only when the definition side is visible in the
+  repo; env reads without in-repo definitions are informational.

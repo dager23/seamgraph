@@ -1,4 +1,5 @@
 """Django URL configuration for testing."""
+
 from django.urls import include, path
 
 from . import views
