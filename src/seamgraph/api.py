@@ -14,7 +14,12 @@ from .graph import SeamGraph
 
 
 def _graph(root: Path) -> SeamGraph:
-    return SeamGraph(root, load_config(root))
+    g = SeamGraph(root, load_config(root))
+    if not g.db_path.exists():
+        # first query on a repo that was never indexed: index it now rather
+        # than serving an empty graph
+        g.index()
+    return g
 
 
 def index(root: Path, full: bool = False) -> dict[str, Any]:

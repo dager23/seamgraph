@@ -57,7 +57,7 @@ def normalize_backend(path: str, framework: str) -> RoutePattern:
     segs: list[str] = []
     for seg in _split(path):
         if (
-            framework in ("fastapi", "flask", "django")
+            framework in ("fastapi", "flask", "flask_restful", "django")
             and (_FASTAPI_PARAM.match(seg) or _FLASK_PARAM.match(seg))
         ) or (framework == "express" and _EXPRESS_PARAM.match(seg)):
             segs.append(PARAM)

@@ -76,6 +76,10 @@ def match_env(anchors: list[Anchor]) -> tuple[list[Seam], list[Orphan]]:
 # ---------------------------------------------------------------------------
 
 
+#: above this many equally-scored definitions, a route call is "unspecific"
+_ROUTE_FANOUT_CAP = 8
+
+
 def match_routes(
     anchors: list[Anchor],
     strip_prefixes: tuple[str, ...] = (),
@@ -122,6 +126,10 @@ def match_routes(
             family = call.key.strip("/").split("/")[:1]
             severity = "warn" if family and family[0] in def_families else "info"
             orphans.append(Orphan(call, "route-call-unmatched", severity))
+        elif len(best_defs) > _ROUTE_FANOUT_CAP:
+            # a concat/tail call like fetch("/api/teams/" + rest) matching
+            # dozens of handlers is not evidence of any specific seam
+            orphans.append(Orphan(call, "route-call-unspecific", "info"))
         else:
             matched_call_keys.add(id(call))
             note = f"ambiguous ({len(best_defs)} definitions)" if len(best_defs) > 1 else ""
@@ -182,11 +190,10 @@ def match_templates(anchors: list[Anchor]) -> tuple[list[Seam], list[Orphan]]:
             matched_file_keys.add(f.key)
             seams.append(Seam(SeamKind.TEMPLATE, ref.key, ref, f, note=note))
 
-    # template files never referenced
+    # template files never referenced: only meaningful for files that live in
+    # a recognized templates directory (any random .html is not a defect)
     for f in files:
-        if f.key not in matched_file_keys:
-            # base templates and layouts are commonly only extended, which we catch.
-            # Only warn for truly unreferenced templates.
+        if f.key not in matched_file_keys and f.extra.get("templates_dir") == "1":
             orphans.append(Orphan(f, "template-file-unreferenced", "info"))
 
     return seams, orphans

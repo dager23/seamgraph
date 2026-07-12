@@ -22,9 +22,15 @@ class TestTemplateFile:
         assert len(anchors) == 0
 
     def test_html_outside_templates_dir(self) -> None:
-        # HTML not in templates/ dir should not be picked up
+        # HTML anywhere is a candidate render target (redash renders
+        # client/app/multi_org.html), but is NOT flagged as living in a
+        # templates dir — so it can match refs yet never becomes an
+        # "unreferenced" orphan
         anchors = extract_template_file("docs/guide.html")
-        assert len(anchors) == 0
+        assert len(anchors) == 1
+        assert anchors[0].extra.get("templates_dir") is None
+        in_dir = extract_template_file("app/templates/guide.html")
+        assert in_dir[0].extra.get("templates_dir") == "1"
 
 
 class TestTemplateRefs:

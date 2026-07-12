@@ -54,9 +54,20 @@ def _template_key(path: str) -> str:
     return parts[-1]
 
 
+_HTML_EXTS = (".html", ".htm", ".jinja", ".jinja2", ".j2")
+
+
 def extract_template_file(path: str) -> list[Anchor]:
-    """Emit a TEMPLATE_FILE anchor if path looks like a template."""
-    if not _is_template_path(path):
+    """Emit a TEMPLATE_FILE anchor if path looks like a template.
+
+    HTML-family files anywhere in the repo are candidate render targets
+    (render calls reference them by name, wherever they live); other
+    extensions only count inside recognized template directories. The
+    ``templates_dir`` flag records which case applied — only flagged files
+    are reported as unreferenced orphans.
+    """
+    in_dir = _is_template_path(path)
+    if not in_dir and not path.lower().endswith(_HTML_EXTS):
         return []
     key = _template_key(path)
     return [
@@ -67,6 +78,7 @@ def extract_template_file(path: str) -> list[Anchor]:
             path,
             1,
             "template file on disk",
+            {"templates_dir": "1"} if in_dir else {},
         )
     ]
 
@@ -79,8 +91,8 @@ def extract_template_refs(path: str, text: str) -> list[Anchor]:
 
     for m in _URL_TAG.finditer(text):
         name = m.group(1).strip()
-        # url names may be namespaced: "app:detail" → key = "detail"
-        key = name.split(":")[-1]
+        # url names may be namespaced/qualified: "app:detail", "blueprint.view"
+        key = name.split(":")[-1].split(".")[-1]
         line = text.count("\n", 0, m.start()) + 1
         anchors.append(
             Anchor(

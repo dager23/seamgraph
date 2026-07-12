@@ -251,3 +251,38 @@ async def get_user(user_id: int):
         route_defs = [a for a in anchors if a.kind is AnchorKind.ROUTE_DEF]
         # Should have the combined prefix
         assert any("/api/v1/users" in a.key for a in route_defs)
+
+
+class TestAddResource:
+    def test_flask_restful_add_resource(self) -> None:
+        src = (
+            "api.add_resource(QueryListResource, '/api/queries', endpoint='queries')\n"
+            "api.add_org_resource(QueryResource, '/api/queries/<query_id>')\n"
+        )
+        facts = extract_python("handlers/api.py", src)
+        assert [(r.path, r.framework) for r in facts.routes] == [
+            ("/api/queries", "flask_restful"),
+            ("/api/queries/<query_id>", "flask_restful"),
+        ]
+        resolved = resolve_routes({"handlers/api.py": facts})
+        keys = {a.key for a in resolved if a.kind.value == "route_def"}
+        assert keys == {"/api/queries", "/api/queries/*"}
+
+
+class TestImportedBlueprint:
+    def test_route_on_imported_blueprint(self) -> None:
+        base = "from flask import Blueprint\nroutes = Blueprint('redash', __name__)\n"
+        admin = (
+            "from myapp.base import routes\n"
+            "@routes.route('/api/admin/outdated', methods=['GET'])\n"
+            "def outdated():\n    pass\n"
+        )
+        all_facts = {
+            "myapp/base.py": extract_python("myapp/base.py", base),
+            "myapp/admin.py": extract_python("myapp/admin.py", admin),
+        }
+        defs = [a for a in resolve_routes(all_facts) if a.kind.value == "route_def"]
+        assert len(defs) == 1
+        assert defs[0].key == "/api/admin/outdated"
+        assert defs[0].extra["framework"] == "flask"
+        assert defs[0].extra["method"] == "GET"

@@ -297,7 +297,35 @@ class _Visitor(ast.NodeVisitor):
             self._call_task(node, names)
             self._call_include(node, names)
             self._call_django_path(node, names)
+            self._call_add_resource(node, names)
         self.generic_visit(node)
+
+    def _call_add_resource(self, node: ast.Call, names: list[str]) -> None:
+        """Flask-RESTful style: api.add_resource(Cls, "/path" [, "/path2" ...]).
+
+        Also matches project-specific wrappers like redash's add_org_resource.
+        The registering Api object's own prefix is unknown, so routes are
+        marked maybe_prefixed (suffix-matchable).
+        """
+        if names[-1] not in ("add_resource", "add_org_resource"):
+            return
+        cls_name = ""
+        if node.args and isinstance(node.args[0], ast.Name):
+            cls_name = node.args[0].id
+        for arg in node.args[1:]:
+            rule = _lit(arg)
+            if rule is None or not rule.startswith("/"):
+                continue
+            self.f.routes.append(
+                RawRoute(
+                    "",
+                    rule,
+                    "",
+                    node.lineno,
+                    "flask_restful",
+                    f"{names[-1]}({cls_name or '...'}, ...)",
+                )
+            )
 
     def _call_env(self, node: ast.Call, names: list[str]) -> None:
         tail = names[-1]
@@ -407,10 +435,12 @@ class _Visitor(ast.NodeVisitor):
         if tail == "url_for":
             # flask endpoint names: function names, keep as urlname too
             pass
+        # strip django "app:" namespaces and flask "blueprint." qualifiers
+        key = s.split(":")[-1].split(".")[-1]
         self.f.anchors.append(
             Anchor(
                 AnchorKind.URLNAME_REF,
-                s.split(":")[-1],
+                key,
                 s,
                 self.path,
                 node.lineno,
@@ -562,9 +592,17 @@ class _Visitor(ast.NodeVisitor):
         info = self.f.routers.get(var)
         if info is not None:
             framework = "flask" if info.framework.startswith("flask") else "fastapi"
+        elif var in self.f.import_froms:
+            # router/blueprint imported from another module (the common way
+            # large apps split routes); resolve_routes() follows the import
+            framework = "imported"
         elif any(m.split(".")[0] == "fastapi" for m in self.f.imports.values()):
             framework = "fastapi"
         elif any(m.split(".")[0] == "flask" for m in self.f.imports.values()):
+            framework = "flask"
+        elif tail == "route":
+            # .route() is the Flask/Blueprint signature even when neither
+            # flask nor the router constructor is visible in this file
             framework = "flask"
         else:
             return
@@ -584,7 +622,7 @@ class _Visitor(ast.NodeVisitor):
             )
         )
         # flask url_for uses endpoint names == view function names
-        if framework == "flask":
+        if framework in ("flask", "imported"):
             self.f.anchors.append(
                 Anchor(
                     AnchorKind.URLNAME_DEF,
@@ -730,12 +768,39 @@ def resolve_routes(all_facts: dict[str, PyFileFacts]) -> list[Anchor]:
         for r in facts.routes:
             own_prefix = ""
             is_subrouter = False
+            framework = r.framework
             info = facts.routers.get(r.var)
+            mount_key = (path, r.var)
+            if info is None and framework == "imported":
+                # follow the import chain (up to 3 hops) to the module that
+                # constructs the router/blueprint this decorator hangs off
+                seen: set[tuple[str, str]] = set()
+                cur_path, cur_var, cur_facts = path, r.var, facts
+                for _ in range(3):
+                    if (cur_path, cur_var) in seen:
+                        break
+                    seen.add((cur_path, cur_var))
+                    target = find_module_file(cur_facts, cur_var)
+                    if target is None or target not in all_facts:
+                        break
+                    cur_path, cur_facts = target, all_facts[target]
+                    resolved_info = cur_facts.routers.get(cur_var)
+                    if resolved_info is not None:
+                        info = resolved_info
+                        mount_key = (cur_path, cur_var)
+                        break
+                    if cur_var not in cur_facts.import_froms:
+                        break
+                if info is not None:
+                    framework = "flask" if info.framework.startswith("flask") else "fastapi"
+                else:
+                    # unresolved import: .route() decorators are Flask-style
+                    framework = "flask"
             if info is not None:
                 own_prefix = info.prefix
                 is_subrouter = info.framework in ("fastapi_router", "flask_blueprint")
-            mount_prefixes = mounts.get((path, r.var), [])
-            extra = {"method": r.methods, "framework": r.framework}
+            mount_prefixes = mounts.get(mount_key, [])
+            extra = {"method": r.methods, "framework": framework}
             if r.framework == "django":
                 # urls.py routes are mounted via include(); always suffix-matchable
                 extra["maybe_prefixed"] = "1"
@@ -755,7 +820,7 @@ def resolve_routes(all_facts: dict[str, PyFileFacts]) -> list[Anchor]:
             else:
                 full_paths = [own_prefix + r.path]
             for fp in full_paths:
-                pattern = normalize_backend(fp, r.framework)
+                pattern = normalize_backend(fp, framework)
                 anchors.append(
                     Anchor(
                         AnchorKind.ROUTE_DEF,
