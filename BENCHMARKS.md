@@ -2,31 +2,48 @@
 
 Tested against 20 real-world OSS repositories.
 
+## Methodology
+
+- Each repo is cloned with `--depth=300 --single-branch --filter=blob:none`:
+  the working tree plus 300 commits of history (no historical blobs), which
+  is all the co-change miner needs.
+- *Anchors* are pattern-anchored reference endpoints; *seams* are matched
+  edges; *corroborated* seams additionally have co-change support >= 3 with
+  directional confidence >= 0.25 in the 300-commit window; *discoveries* are
+  cross-artifact file pairs with high co-change but no static seam.
+- Numbers are produced by `python tests/benchmark_real_repos.py --keep` and
+  are fully deterministic for a given set of clone heads.
+- Warning-severity orphans (not shown per-repo below) averaged ~12 per repo
+  across the corpus; every sampled warning was hand-verified as either a
+  genuine dead reference (e.g. papermark's frontend calling
+  `/api/teams/{id}/billing/manage` with no such handler) or an extraction
+  gap that was then fixed and re-run before these numbers were published.
+
 ## Summary Table
 
 | Repo | Description | Files | Anchors | Seams | Corroborated | Discoveries | Time (s) |
 |------|-------------|------:|--------:|------:|-------------:|------------:|---------:|
-| fastapi-full-stack | FastAPI+React official template | 236 | 195 | 100 | 0 | 0 | 0.31 |
-| saleor | Django e-commerce platform | 4,611 | 3,913 | 918 | 4 | 0 | 9.72 |
-| saleor-dashboard | React dashboard for Saleor | 5,467 | 331 | 198 | 6 | 0 | 4.19 |
-| label-studio | Django+React data labeling | 5,183 | 2,186 | 1,049 | 0 | 0 | 4.74 |
-| redash | Flask+React dashboards | 1,288 | 596 | 134 | 0 | 1 | 1.31 |
-| plane | Django+Next.js project management | 5,405 | 2,451 | 801 | 0 | 6 | 4.65 |
-| cal.com | Next.js scheduling platform | 7,674 | 2,208 | 4,029 | 0 | 0 | 5.55 |
-| immich | TS+Svelte photo management | 3,846 | 575 | 46 | 0 | 0 | 2.72 |
-| listmonk | Go+Vue newsletter manager | 506 | 185 | 3 | 0 | 0 | 0.38 |
-| maybe | Ruby+React finance app | 1,601 | 89 | 1 | 0 | 0 | 0.48 |
-| documenso | Next.js document signing | 2,794 | 844 | 127 | 0 | 0 | 2.49 |
-| rallly | Next.js scheduling polls | 1,436 | 362 | 141 | 3 | 0 | 0.8 |
-| formbricks | Next.js survey platform | 4,105 | 1,018 | 301 | 57 | 0 | 4.16 |
-| papermark | Next.js document sharing | 1,703 | 1,062 | 558 | 30 | 0 | 2.09 |
-| dify | Flask+React LLM app platform | 13,480 | 3,740 | 1,469 | 0 | 0 | 20.7 |
-| open-webui | Svelte+Python chat UI | 4,951 | 1,896 | 110 | 0 | 3 | 3.58 |
-| lobe-chat | Next.js chat application | 12,970 | 2,760 | 2,671 | 111 | 2 | 14.47 |
-| twenty | TS+React CRM | 25,930 | 1,365 | 1,416 | 0 | 0 | 17.03 |
-| infisical | Next.js secret management | 12,972 | 1,652 | 314 | 0 | 0 | 9.75 |
-| hoppscotch | Vue.js API development | 2,362 | 422 | 79 | 0 | 0 | 2.25 |
-| **Total** | | **118,520** | **27,850** | **14,465** | **211** | **12** | |
+| fastapi-full-stack | FastAPI+React official template | 236 | 195 | 100 | 0 | 0 | 0.3 |
+| saleor | Django e-commerce platform | 4,611 | 3,931 | 918 | 4 | 0 | 9.44 |
+| saleor-dashboard | React dashboard for Saleor | 5,467 | 331 | 198 | 6 | 0 | 3.89 |
+| label-studio | Django+React data labeling | 5,183 | 2,196 | 1,095 | 0 | 0 | 4.27 |
+| redash | Flask+React dashboards | 1,288 | 615 | 194 | 0 | 1 | 1.17 |
+| plane | Django+Next.js project management | 5,405 | 2,455 | 801 | 0 | 6 | 4.24 |
+| cal.com | Next.js scheduling platform | 7,674 | 2,208 | 4,029 | 0 | 0 | 5.03 |
+| immich | TS+Svelte photo management | 3,846 | 575 | 46 | 0 | 0 | 2.45 |
+| listmonk | Go+Vue newsletter manager | 506 | 185 | 3 | 0 | 0 | 0.35 |
+| maybe | Ruby+React finance app | 1,601 | 89 | 1 | 0 | 0 | 0.39 |
+| documenso | Next.js document signing | 2,794 | 844 | 127 | 0 | 0 | 2.17 |
+| rallly | Next.js scheduling polls | 1,436 | 362 | 141 | 3 | 0 | 0.73 |
+| formbricks | Next.js survey platform | 4,105 | 1,018 | 301 | 57 | 0 | 3.71 |
+| papermark | Next.js document sharing | 1,703 | 1,062 | 558 | 30 | 0 | 1.96 |
+| dify | Flask+React LLM app platform | 13,480 | 3,740 | 1,469 | 0 | 0 | 20.2 |
+| open-webui | Svelte+Python chat UI | 4,951 | 1,896 | 110 | 0 | 3 | 3.53 |
+| lobe-chat | Next.js chat application | 12,970 | 2,760 | 2,671 | 111 | 2 | 13.26 |
+| twenty | TS+React CRM | 25,930 | 1,365 | 1,416 | 0 | 0 | 14.94 |
+| infisical | Next.js secret management | 12,972 | 1,652 | 314 | 0 | 0 | 9.55 |
+| hoppscotch | Vue.js API development | 2,362 | 422 | 79 | 0 | 0 | 2.3 |
+| **Total** | | **118,520** | **27,901** | **14,571** | **211** | **12** | |
 
 ## Seams by Kind (aggregated)
 
@@ -34,9 +51,9 @@ Tested against 20 real-world OSS repositories.
 |------|------:|
 | env | 11,539 |
 | setting | 1,560 |
-| route | 886 |
+| route | 932 |
 | script | 242 |
-| urlname | 157 |
+| urlname | 217 |
 | template | 81 |
 
 ## Anchors by Kind (aggregated)
@@ -45,11 +62,11 @@ Tested against 20 real-world OSS repositories.
 |------|------:|
 | env_read | 7,388 |
 | env_def | 6,217 |
-| route_def | 3,439 |
+| route_def | 3,453 |
 | route_call | 3,039 |
 | setting_read | 2,047 |
 | script_def | 1,973 |
-| urlname_def | 1,775 |
+| urlname_def | 1,812 |
 | script_use | 600 |
 | setting_def | 553 |
 | task_def | 290 |
@@ -63,16 +80,16 @@ Tested against 20 real-world OSS repositories.
 |---------|------:|
 | env-use-unmatched | 4,519 |
 | env-def-unused | 3,391 |
-| route-def-uncalled | 3,115 |
-| route-call-unmatched | 2,346 |
+| route-def-uncalled | 3,123 |
+| route-call-unmatched | 2,300 |
 | script-def-unused | 1,810 |
-| urlname-def-unused | 1,739 |
+| urlname-def-unused | 1,769 |
 | setting-use-unmatched | 651 |
 | task-def-uncalled | 290 |
 | setting-def-unused | 221 |
 | template-file-unreferenced | 115 |
-| urlname-use-unmatched | 35 |
 | script-use-unmatched | 17 |
+| urlname-use-unmatched | 12 |
 | route-call-unspecific | 6 |
 | template-ref-missing | 1 |
 
@@ -89,10 +106,10 @@ Tested against 20 real-world OSS repositories.
 ### saleor
 *Django e-commerce platform*
 
-**Anchors:** env_def=85, env_read=157, route_call=39, route_def=1141, script_def=3, script_use=9, setting_def=247, setting_read=904, task_def=121, template_file=28, template_ref=7, urlname_def=1149, urlname_ref=23
+**Anchors:** env_def=85, env_read=157, route_call=39, route_def=1141, script_def=3, script_use=9, setting_def=247, setting_read=904, task_def=121, template_file=28, template_ref=7, urlname_def=1167, urlname_ref=23
 **Seams:** env=19, script=1, setting=868, template=7, urlname=23
 **Grades:** anchored=914, corroborated=4
-**Orphans:** env-def-unused=66, env-use-unmatched=148, route-call-unmatched=39, route-def-uncalled=1141, script-def-unused=2, setting-def-unused=91, setting-use-unmatched=89, task-def-uncalled=121, template-file-unreferenced=1, urlname-def-unused=1145
+**Orphans:** env-def-unused=66, env-use-unmatched=148, route-call-unmatched=39, route-def-uncalled=1141, script-def-unused=2, setting-def-unused=91, setting-use-unmatched=89, task-def-uncalled=121, template-file-unreferenced=1, urlname-def-unused=1163
 
 ### saleor-dashboard
 *React dashboard for Saleor*
@@ -105,26 +122,26 @@ Tested against 20 real-world OSS repositories.
 ### label-studio
 *Django+React data labeling*
 
-**Anchors:** env_def=243, env_read=80, route_call=330, route_def=195, script_def=83, script_use=22, setting_def=289, setting_read=579, task_def=29, template_file=36, template_ref=30, urlname_def=207, urlname_ref=63
-**Seams:** env=37, route=247, script=9, setting=668, template=30, urlname=58
-**Grades:** anchored=1049
-**Orphans:** env-def-unused=227, env-use-unmatched=52, route-call-unmatched=113, route-def-uncalled=154, script-def-unused=76, setting-def-unused=115, setting-use-unmatched=10, task-def-uncalled=29, template-file-unreferenced=11, urlname-def-unused=185, urlname-use-unmatched=6
+**Anchors:** env_def=243, env_read=80, route_call=330, route_def=205, script_def=83, script_use=22, setting_def=289, setting_read=579, task_def=29, template_file=36, template_ref=30, urlname_def=207, urlname_ref=63
+**Seams:** env=37, route=293, script=9, setting=668, template=30, urlname=58
+**Grades:** anchored=1095
+**Orphans:** env-def-unused=227, env-use-unmatched=52, route-call-unmatched=67, route-def-uncalled=158, script-def-unused=76, setting-def-unused=115, setting-use-unmatched=10, task-def-uncalled=29, template-file-unreferenced=11, urlname-def-unused=185, urlname-use-unmatched=6
 
 ### redash
 *Flask+React dashboards*
 
-**Anchors:** env_def=113, env_read=202, route_call=24, route_def=85, script_def=54, script_use=14, template_file=25, template_ref=29, urlname_def=14, urlname_ref=36
-**Seams:** env=84, route=8, script=7, template=29, urlname=6
-**Grades:** anchored=134
-**Orphans:** env-def-unused=62, env-use-unmatched=185, route-call-unmatched=16, route-def-uncalled=80, script-def-unused=49, template-file-unreferenced=6, urlname-def-unused=13, urlname-use-unmatched=28
+**Anchors:** env_def=113, env_read=202, route_call=24, route_def=85, script_def=54, script_use=14, template_file=25, template_ref=29, urlname_def=33, urlname_ref=36
+**Seams:** env=84, route=8, script=7, template=29, urlname=66
+**Grades:** anchored=194
+**Orphans:** env-def-unused=62, env-use-unmatched=185, route-call-unmatched=16, route-def-uncalled=80, script-def-unused=49, template-file-unreferenced=6, urlname-def-unused=25, urlname-use-unmatched=5
 
 ### plane
 *Django+Next.js project management*
 
-**Anchors:** env_def=552, env_read=239, route_call=3, route_def=382, script_def=162, script_use=9, setting_def=16, setting_read=564, task_def=47, template_file=15, template_ref=15, urlname_def=380, urlname_ref=67
+**Anchors:** env_def=552, env_read=239, route_call=3, route_def=386, script_def=162, script_use=9, setting_def=16, setting_read=564, task_def=47, template_file=15, template_ref=15, urlname_def=380, urlname_ref=67
 **Seams:** env=687, route=5, setting=24, template=15, urlname=70
 **Grades:** anchored=801
-**Orphans:** env-def-unused=245, env-use-unmatched=134, route-def-uncalled=379, script-def-unused=162, setting-def-unused=14, setting-use-unmatched=552, task-def-uncalled=47, template-file-unreferenced=1, urlname-def-unused=371
+**Orphans:** env-def-unused=245, env-use-unmatched=134, route-def-uncalled=383, script-def-unused=162, setting-def-unused=14, setting-use-unmatched=552, task-def-uncalled=47, template-file-unreferenced=1, urlname-def-unused=371
 
 ### cal.com
 *Next.js scheduling platform*

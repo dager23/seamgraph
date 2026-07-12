@@ -95,7 +95,7 @@ def extract_file_routes(path: str, text: str) -> list[Anchor]:
     # --- Next.js pages router: **/pages/api/... --------------------------
     if "pages" in parts[:-1]:
         pages_idx = _last_index(parts[:-1], "pages")
-        rel = parts[pages_idx + 1 : -1] + [stem]
+        rel = [*parts[pages_idx + 1 : -1], stem]
         if rel and rel[0] == "api":
             route = _to_route(rel)
             if route is not None:
@@ -123,7 +123,7 @@ def extract_file_routes(path: str, text: str) -> list[Anchor]:
                 method = m.group(1).upper()
                 base = stem[: m.start()]
             prefix = ["api"] if rel[0] == "api" else []
-            route = _to_route(prefix + rel[1:] + [base])
+            route = _to_route([*prefix, *rel[1:], base])
             if route is not None:
                 return [_anchor(path, route, "nuxt", method)]
     return []

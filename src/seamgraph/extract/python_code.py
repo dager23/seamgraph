@@ -298,7 +298,30 @@ class _Visitor(ast.NodeVisitor):
             self._call_include(node, names)
             self._call_django_path(node, names)
             self._call_add_resource(node, names)
+            self._call_drf_register(node, names)
         self.generic_visit(node)
+
+    def _call_drf_register(self, node: ast.Call, names: list[str]) -> None:
+        """Django REST Framework routers: router.register(r"views", ViewSet).
+
+        Anchored on: a .register(...) call whose receiver name contains
+        "router" (or the file imports rest_framework) with a string-literal
+        prefix. ViewSets expose list/detail routes; we emit both, suffix-
+        matchable since the router's include() mount point is elsewhere.
+        """
+        if names[-1] != "register" or not node.args:
+            return
+        receiver_hint = any("router" in part.lower() for part in names[:-1])
+        drf_import = any(m.split(".")[0] == "rest_framework" for m in self.f.imports.values())
+        if not receiver_hint and not drf_import:
+            return
+        prefix = _lit(node.args[0])
+        if prefix is None or not prefix or prefix.startswith("/"):
+            return
+        base = "/" + prefix.strip("/")
+        detail = f"{'.'.join(names)}({prefix!r}, ...) (DRF ViewSet)"
+        for rule in (base, base + "/<pk>"):
+            self.f.routes.append(RawRoute("", rule, "", node.lineno, "drf", detail))
 
     def _call_add_resource(self, node: ast.Call, names: list[str]) -> None:
         """Flask-RESTful style: api.add_resource(Cls, "/path" [, "/path2" ...]).
@@ -588,6 +611,23 @@ class _Visitor(ast.NodeVisitor):
         tail = names[-1]
         path_arg = _lit(dec.args[0]) if dec.args else _kw_str(dec, "path") or _kw_str(dec, "rule")
         if path_arg is None:
+            # dynamic route path (helper-wrapped rule): the URL is unknowable
+            # but the endpoint name is still the view function's name
+            if (
+                tail == "route"
+                or var in self.f.import_froms
+                or "flask" in str(self.f.imports.values())
+            ):
+                self.f.anchors.append(
+                    Anchor(
+                        AnchorKind.URLNAME_DEF,
+                        node.name,
+                        node.name,
+                        self.path,
+                        dec.lineno,
+                        f"flask endpoint {node.name} (dynamic rule)",
+                    )
+                )
             return
         info = self.f.routers.get(var)
         if info is not None:
@@ -801,7 +841,7 @@ def resolve_routes(all_facts: dict[str, PyFileFacts]) -> list[Anchor]:
                 is_subrouter = info.framework in ("fastapi_router", "flask_blueprint")
             mount_prefixes = mounts.get(mount_key, [])
             extra = {"method": r.methods, "framework": framework}
-            if r.framework == "django":
+            if r.framework in ("django", "drf"):
                 # urls.py routes are mounted via include(); always suffix-matchable
                 extra["maybe_prefixed"] = "1"
                 full_paths = [r.path]
