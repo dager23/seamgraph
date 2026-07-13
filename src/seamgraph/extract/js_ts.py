@@ -21,12 +21,21 @@ _AXIOS_VERB = re.compile(
     r"""\.\s*(get|post|put|patch|delete|head|options|request)\s*\(\s*(['"`])""",
     re.IGNORECASE,
 )
-_AXIOS_URL_KEY = re.compile(r"""\burl\s*:\s*(['"`])""")
 _ENV_READS = re.compile(
     r"""\b(?:process\.env|import\.meta\.env)(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*['"]([^'"\]]+)['"]\s*\])"""
 )
+_ENV_DESTRUCTURE = re.compile(
+    r"""(?:const|let|var)\s*\{([^}]+)\}\s*=\s*(?:process\.env|import\.meta\.env)\b"""
+)
+_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*")
 _EXPRESS_DEF = re.compile(
     r"""\b(app|router|server|api)\s*\.\s*(get|post|put|patch|delete|all)\s*\(\s*(['"`])(/[^'"`\n]*)\3"""
+)
+# app.use("/api", subrouter) / hono app.route("/api/v2", subapp): a mounted
+# sub-application serves everything below the prefix. The trailing comma
+# requires a second argument, excluding express's chaining .route("/x").get()
+_EXPRESS_MOUNT = re.compile(
+    r"""\b(app|router|server|api)\s*\.\s*(use|route)\s*\(\s*(['"`])(/[^'"`\n]*)\3\s*,"""
 )
 _METHOD_OPT = re.compile(r"""method\s*:\s*['"`](\w+)['"`]""", re.IGNORECASE)
 _VITE_STYLE_ENV = frozenset({"MODE", "BASE_URL", "PROD", "DEV", "SSR"})
@@ -196,6 +205,24 @@ def extract_js_ts(path: str, text: str, strip_prefixes: tuple[str, ...] = ()) ->
             )
         )
 
+    for m in _ENV_DESTRUCTURE.finditer(text):
+        # const { API_URL, DEBUG: dbg = "0" } = process.env
+        for part in m.group(1).split(","):
+            ident = _IDENT.match(part.strip())
+            if not ident or ident.group(0) in _VITE_STYLE_ENV:
+                continue
+            anchors.append(
+                Anchor(
+                    AnchorKind.ENV_READ,
+                    ident.group(0),
+                    ident.group(0),
+                    path,
+                    _line_of(text, m.start()),
+                    "destructured from process.env",
+                    {"source": "code"},
+                )
+            )
+
     for m in _EXPRESS_DEF.finditer(text):
         var, verb, url = m.group(1), m.group(2), m.group(4)
         pattern = normalize_backend(url, "express")
@@ -211,6 +238,28 @@ def extract_js_ts(path: str, text: str, strip_prefixes: tuple[str, ...] = ()) ->
                     "method": "" if verb == "all" else verb.upper(),
                     "framework": "express",
                     # routers are commonly mounted under a prefix we can't resolve in v0.1
+                    "maybe_prefixed": "1" if var != "app" else "",
+                },
+            )
+        )
+
+    for m in _EXPRESS_MOUNT.finditer(text):
+        var, verb, url = m.group(1), m.group(2), m.group(4)
+        base = url.rstrip("/")
+        if not base:
+            continue  # app.use("/", ...) mounts everything; no seam evidence
+        pattern = normalize_backend(base, "express")
+        anchors.append(
+            Anchor(
+                AnchorKind.ROUTE_DEF,
+                pattern.display() + "/**",
+                url,
+                path,
+                _line_of(text, m.start()),
+                f"{var}.{verb}(...) (mounted sub-app)",
+                {
+                    "method": "",
+                    "framework": "express",
                     "maybe_prefixed": "1" if var != "app" else "",
                 },
             )

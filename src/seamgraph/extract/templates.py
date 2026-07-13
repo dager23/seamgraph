@@ -22,9 +22,6 @@ _URL_TAG = re.compile(
 _INCLUDE_TAG = re.compile(
     r"""\{%[-\s]+(?:include|extends)\s+['"]([^'"]+)['"]""",
 )
-_BLOCK_TAG = re.compile(
-    r"""\{%[-\s]+block\s+(\w+)""",
-)
 
 
 def _is_template_path(path: str) -> bool:
@@ -84,8 +81,14 @@ def extract_template_file(path: str) -> list[Anchor]:
 
 
 def extract_template_refs(path: str, text: str) -> list[Anchor]:
-    """Extract URLNAME_REF ({% url %}) and TEMPLATE_REF ({% include/extends %}) from templates."""
-    if not _is_template_path(path):
+    """Extract URLNAME_REF ({% url %}) and TEMPLATE_REF ({% include/extends %}) from templates.
+
+    Applies to the same file set as :func:`extract_template_file`: any
+    HTML-family file plus recognized template directories — a template that
+    lives outside ``templates/`` (redash's ``client/app/multi_org.html``)
+    still extends and links like any other.
+    """
+    if not _is_template_path(path) and not path.lower().endswith(_HTML_EXTS):
         return []
     anchors: list[Anchor] = []
 

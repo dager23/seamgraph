@@ -21,7 +21,7 @@ else:
 
 _ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=")
 _DOCKER_ENV = re.compile(r"^\s*(ENV|ARG)\s+(.+)$", re.IGNORECASE)
-_DOCKER_PAIR = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)(?:=|\s)")
+_DOCKER_PAIR = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)(?:=|\s|$)")
 _MAKE_TARGET = re.compile(r"^([A-Za-z0-9_][A-Za-z0-9_.-]*)\s*:(?!=)")
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 

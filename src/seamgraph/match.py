@@ -80,42 +80,60 @@ def match_env(anchors: list[Anchor]) -> tuple[list[Seam], list[Orphan]]:
 _ROUTE_FANOUT_CAP = 8
 
 
-def match_routes(
-    anchors: list[Anchor],
-    strip_prefixes: tuple[str, ...] = (),
-) -> tuple[list[Seam], list[Orphan]]:
-    """Match route calls against route definitions using path-template normalization."""
+def _route_family(key: str) -> str:
+    """Leading literal segments (at most two, stopping at the first wildcard)."""
+    literals: list[str] = []
+    for seg in key.strip("/").split("/"):
+        if seg in ("*", "**") or not seg:
+            break
+        literals.append(seg)
+        if len(literals) == 2:
+            break
+    return "/".join(literals)
+
+
+def match_routes(anchors: list[Anchor]) -> tuple[list[Seam], list[Orphan]]:
+    """Match route calls against route definitions using path-template normalization.
+
+    URL-prefix stripping happens at extraction time (anchors arrive with
+    normalized keys), so no configuration is needed here.
+    """
     calls = [a for a in anchors if a.kind is AnchorKind.ROUTE_CALL]
     defs = [a for a in anchors if a.kind is AnchorKind.ROUTE_DEF]
     seams: list[Seam] = []
     orphans: list[Orphan] = []
 
-    # first literal segment of every definition ("api", "v2", ...): an
-    # unmatched call only warns when the repo defines routes in the same
-    # family — a call to a service the repo doesn't implement is not a defect
-    def_families = {
-        seg for d in defs for seg in d.key.strip("/").split("/")[:1] if seg not in ("*", "**")
-    }
+    # Family = up to the first two literal path segments ("api/teams", not just
+    # "api"). An unmatched call only warns when the repo defines routes in the
+    # same family; calls into an API surface the repo implements another way
+    # (tRPC, GraphQL, a separate service) are informational, not defects.
+    def_families = {_route_family(d.key) for d in defs} - {""}
 
-    matched_call_keys: set[int] = set()
+    # precompute per-definition patterns and method sets once (the calls loop
+    # below is O(calls x defs); rebuilding these per pair dominated runtime)
+    def_entries = [
+        (
+            d,
+            RoutePattern(tuple(d.key.strip("/").split("/"))),
+            frozenset(d.method.split(",")) if d.method else frozenset(),
+            d.maybe_prefixed,
+        )
+        for d in defs
+    ]
 
     for call in calls:
         call_pattern = RoutePattern(tuple(call.key.strip("/").split("/")))
+        call_methods = frozenset(call.method.split(",")) if call.method else frozenset()
         best_score: int | None = None
         best_defs: list[Anchor] = []
 
-        for defn in defs:
-            def_pattern = RoutePattern(tuple(defn.key.strip("/").split("/")))
-            allow_prefix = defn.maybe_prefixed
+        for defn, def_pattern, def_methods, allow_prefix in def_entries:
+            # method compatibility: if both specify, they must overlap
+            if call_methods and def_methods and not (call_methods & def_methods):
+                continue
             score = match_route(call_pattern, def_pattern, allow_def_prefix=allow_prefix)
             if score is None:
                 continue
-            # method compatibility: if both specify, they must overlap
-            if call.method and defn.method:
-                call_methods = set(call.method.split(","))
-                def_methods = set(defn.method.split(","))
-                if not call_methods & def_methods:
-                    continue
             if best_score is None or score > best_score:
                 best_score = score
                 best_defs = [defn]
@@ -123,15 +141,14 @@ def match_routes(
                 best_defs.append(defn)
 
         if not best_defs:
-            family = call.key.strip("/").split("/")[:1]
-            severity = "warn" if family and family[0] in def_families else "info"
+            family = _route_family(call.key)
+            severity = "warn" if family and family in def_families else "info"
             orphans.append(Orphan(call, "route-call-unmatched", severity))
         elif len(best_defs) > _ROUTE_FANOUT_CAP:
             # a concat/tail call like fetch("/api/teams/" + rest) matching
             # dozens of handlers is not evidence of any specific seam
             orphans.append(Orphan(call, "route-call-unspecific", "info"))
         else:
-            matched_call_keys.add(id(call))
             note = f"ambiguous ({len(best_defs)} definitions)" if len(best_defs) > 1 else ""
             for d in best_defs:
                 seams.append(Seam(SeamKind.ROUTE, call.key, call, d, note=note))
@@ -327,17 +344,14 @@ def match_settings(anchors: list[Anchor]) -> tuple[list[Seam], list[Orphan]]:
 # ---------------------------------------------------------------------------
 
 
-def match_all(
-    anchors: list[Anchor],
-    strip_prefixes: tuple[str, ...] = (),
-) -> tuple[list[Seam], list[Orphan]]:
+def match_all(anchors: list[Anchor]) -> tuple[list[Seam], list[Orphan]]:
     """Run all kind-specific matchers and return combined results."""
     all_seams: list[Seam] = []
     all_orphans: list[Orphan] = []
 
     for matcher in (
         match_env,
-        lambda a: match_routes(a, strip_prefixes=strip_prefixes),
+        match_routes,
         match_templates,
         match_urlnames,
         match_tasks,

@@ -30,18 +30,18 @@ Run against 20 popular full-stack repositories — saleor, redash, label-studio,
 cal.com, dify, lobe-chat, twenty, and more ([BENCHMARKS.md](BENCHMARKS.md) has
 the full table and methodology):
 
-- **118,520 files → 27,901 anchors → 14,571 seams** across 7 seam kinds;
-  211 seams additionally corroborated by git co-change history.
+- **118,520 files → 25,824 anchors → 16,207 seams** across 7 seam kinds;
+  242 seams additionally corroborated by git co-change history.
 - **Token cost of "where is this referenced?"**: one `seams_for` response vs
   the grep-then-read-each-file workflow, measured byte-for-byte
   (`scripts/measure_token_story.py`): median **14.8x** less context on redash,
-  **97.8x** on saleor, **12.8x** on papermark.
-- **Noise stays low**: 181 warning-level findings across all 20 repos
-  (9 repos report zero). Sampled warnings hand-verified: they are real —
-  e.g. papermark's frontend calls `/api/teams/{id}/billing/manage`,
-  `/api/branding/auto-fill`, and a documents `feedback` endpoint that have
-  **no handler in the repo**; everything ambiguous is downgraded to
-  informational rather than warned.
+  **62.5x** on saleor, **12.8x** on papermark.
+- **Noise stays low**: 84 warning-level findings across all 20 repos
+  (11 repos report zero). Sampled warnings hand-verified: they are real —
+  e.g. papermark's frontend calls `/api/teams/{id}/billing/manage` and a
+  documents `feedback` endpoint that have **no handler in the repo**, and
+  dify test calls to routes that deliberately don't exist. Everything
+  ambiguous is downgraded to informational rather than warned.
 
 ## Installation
 

@@ -3,14 +3,14 @@
     "name": "fastapi-full-stack",
     "desc": "FastAPI+React official template",
     "files_scanned": 236,
-    "time_seconds": 0.3,
-    "total_anchors": 195,
-    "total_seams": 100,
-    "total_orphans": 73,
+    "time_seconds": 0.41,
+    "total_anchors": 198,
+    "total_seams": 104,
+    "total_orphans": 74,
     "total_discoveries": 0,
     "anchors_by_kind": {
       "template_file": 2,
-      "env_def": 119,
+      "env_def": 122,
       "script_use": 4,
       "script_def": 11,
       "env_read": 35,
@@ -18,14 +18,14 @@
       "route_def": 23
     },
     "seams_by_kind": {
-      "env": 100
+      "env": 104
     },
     "seams_by_grade": {
-      "anchored": 100
+      "anchored": 104
     },
     "orphans_by_problem": {
       "env-use-unmatched": 5,
-      "env-def-unused": 32,
+      "env-def-unused": 33,
       "route-call-unmatched": 1,
       "route-def-uncalled": 23,
       "template-file-unreferenced": 1,
@@ -37,13 +37,13 @@
     "name": "saleor",
     "desc": "Django e-commerce platform",
     "files_scanned": 4611,
-    "time_seconds": 9.44,
-    "total_anchors": 3931,
-    "total_seams": 918,
-    "total_orphans": 2861,
+    "time_seconds": 11.74,
+    "total_anchors": 1650,
+    "total_seams": 919,
+    "total_orphans": 579,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_def": 85,
+      "env_def": 88,
       "script_use": 9,
       "script_def": 3,
       "template_file": 28,
@@ -51,30 +51,28 @@
       "template_ref": 7,
       "task_def": 121,
       "setting_read": 904,
-      "env_read": 157,
-      "urlname_def": 1167,
-      "route_def": 1141,
+      "env_read": 155,
       "route_call": 39,
-      "setting_def": 247
+      "setting_def": 247,
+      "urlname_def": 26
     },
     "seams_by_kind": {
-      "env": 19,
+      "env": 20,
       "template": 7,
       "urlname": 23,
       "script": 1,
       "setting": 868
     },
     "seams_by_grade": {
-      "anchored": 914,
+      "anchored": 915,
       "corroborated": 4
     },
     "orphans_by_problem": {
-      "env-use-unmatched": 148,
-      "env-def-unused": 66,
+      "env-use-unmatched": 146,
+      "env-def-unused": 68,
       "route-call-unmatched": 39,
-      "route-def-uncalled": 1141,
       "template-file-unreferenced": 1,
-      "urlname-def-unused": 1163,
+      "urlname-def-unused": 22,
       "task-def-uncalled": 121,
       "script-def-unused": 2,
       "setting-use-unmatched": 89,
@@ -86,13 +84,13 @@
     "name": "saleor-dashboard",
     "desc": "React dashboard for Saleor",
     "files_scanned": 5467,
-    "time_seconds": 3.89,
-    "total_anchors": 331,
-    "total_seams": 198,
-    "total_orphans": 188,
+    "time_seconds": 5.82,
+    "total_anchors": 339,
+    "total_seams": 206,
+    "total_orphans": 194,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_def": 177,
+      "env_def": 185,
       "script_use": 32,
       "template_file": 3,
       "route_call": 4,
@@ -100,16 +98,16 @@
       "env_read": 64
     },
     "seams_by_kind": {
-      "env": 183,
+      "env": 191,
       "script": 15
     },
     "seams_by_grade": {
-      "anchored": 192,
+      "anchored": 200,
       "corroborated": 6
     },
     "orphans_by_problem": {
       "env-use-unmatched": 19,
-      "env-def-unused": 124,
+      "env-def-unused": 130,
       "route-call-unmatched": 4,
       "script-def-unused": 41
     },
@@ -119,13 +117,13 @@
     "name": "label-studio",
     "desc": "Django+React data labeling",
     "files_scanned": 5183,
-    "time_seconds": 4.27,
-    "total_anchors": 2196,
-    "total_seams": 1095,
-    "total_orphans": 936,
+    "time_seconds": 5.84,
+    "total_anchors": 2148,
+    "total_seams": 1103,
+    "total_orphans": 880,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_def": 243,
+      "env_def": 259,
       "script_use": 22,
       "script_def": 83,
       "env_read": 80,
@@ -135,12 +133,12 @@
       "urlname_ref": 63,
       "setting_read": 579,
       "setting_def": 289,
-      "urlname_def": 207,
-      "route_def": 205,
+      "urlname_def": 175,
+      "route_def": 173,
       "task_def": 29
     },
     "seams_by_kind": {
-      "env": 37,
+      "env": 45,
       "route": 293,
       "template": 30,
       "urlname": 58,
@@ -148,16 +146,16 @@
       "setting": 668
     },
     "seams_by_grade": {
-      "anchored": 1095
+      "anchored": 1103
     },
     "orphans_by_problem": {
       "env-use-unmatched": 52,
-      "env-def-unused": 227,
+      "env-def-unused": 235,
       "route-call-unmatched": 67,
-      "route-def-uncalled": 158,
+      "route-def-uncalled": 126,
       "template-file-unreferenced": 11,
       "urlname-use-unmatched": 6,
-      "urlname-def-unused": 185,
+      "urlname-def-unused": 153,
       "task-def-uncalled": 29,
       "script-def-unused": 76,
       "setting-use-unmatched": 10,
@@ -169,22 +167,22 @@
     "name": "redash",
     "desc": "Flask+React dashboards",
     "files_scanned": 1288,
-    "time_seconds": 1.17,
-    "total_anchors": 615,
+    "time_seconds": 1.61,
+    "total_anchors": 613,
     "total_seams": 194,
-    "total_orphans": 428,
+    "total_orphans": 426,
     "total_discoveries": 1,
     "anchors_by_kind": {
-      "env_def": 113,
+      "env_def": 119,
       "script_use": 14,
       "script_def": 54,
-      "env_read": 202,
+      "env_read": 204,
       "template_file": 25,
       "route_call": 24,
       "template_ref": 29,
       "urlname_ref": 36,
-      "urlname_def": 33,
-      "route_def": 85
+      "urlname_def": 28,
+      "route_def": 80
     },
     "seams_by_kind": {
       "env": 84,
@@ -197,13 +195,13 @@
       "anchored": 194
     },
     "orphans_by_problem": {
-      "env-use-unmatched": 185,
-      "env-def-unused": 62,
+      "env-use-unmatched": 187,
+      "env-def-unused": 68,
       "route-call-unmatched": 16,
-      "route-def-uncalled": 80,
+      "route-def-uncalled": 75,
       "template-file-unreferenced": 6,
       "urlname-use-unmatched": 5,
-      "urlname-def-unused": 25,
+      "urlname-def-unused": 20,
       "script-def-unused": 49
     },
     "error": null
@@ -212,13 +210,13 @@
     "name": "plane",
     "desc": "Django+Next.js project management",
     "files_scanned": 5405,
-    "time_seconds": 4.24,
-    "total_anchors": 2455,
-    "total_seams": 801,
-    "total_orphans": 1909,
+    "time_seconds": 6.08,
+    "total_anchors": 2490,
+    "total_seams": 896,
+    "total_orphans": 1912,
     "total_discoveries": 6,
     "anchors_by_kind": {
-      "env_def": 552,
+      "env_def": 587,
       "script_use": 9,
       "script_def": 162,
       "env_read": 239,
@@ -233,18 +231,18 @@
       "urlname_ref": 67
     },
     "seams_by_kind": {
-      "env": 687,
+      "env": 782,
       "route": 5,
       "template": 15,
       "urlname": 70,
       "setting": 24
     },
     "seams_by_grade": {
-      "anchored": 801
+      "anchored": 896
     },
     "orphans_by_problem": {
       "env-use-unmatched": 134,
-      "env-def-unused": 245,
+      "env-def-unused": 248,
       "route-def-uncalled": 383,
       "template-file-unreferenced": 1,
       "urlname-def-unused": 371,
@@ -259,34 +257,34 @@
     "name": "cal.com",
     "desc": "Next.js scheduling platform",
     "files_scanned": 7674,
-    "time_seconds": 5.03,
-    "total_anchors": 2208,
-    "total_seams": 4029,
-    "total_orphans": 853,
+    "time_seconds": 7.59,
+    "total_anchors": 2225,
+    "total_seams": 4085,
+    "total_orphans": 824,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_def": 762,
+      "env_def": 777,
       "script_use": 42,
-      "env_read": 916,
+      "env_read": 917,
+      "route_def": 87,
       "script_def": 278,
       "route_call": 106,
-      "route_def": 86,
       "template_file": 18
     },
     "seams_by_kind": {
-      "env": 3934,
-      "route": 33,
+      "env": 3957,
+      "route": 66,
       "script": 62
     },
     "seams_by_grade": {
-      "anchored": 4029
+      "anchored": 4085
     },
     "orphans_by_problem": {
       "env-use-unmatched": 198,
-      "env-def-unused": 253,
-      "route-call-unmatched": 75,
+      "env-def-unused": 258,
+      "route-call-unmatched": 43,
       "route-call-unspecific": 1,
-      "route-def-uncalled": 62,
+      "route-def-uncalled": 60,
       "template-file-unreferenced": 11,
       "script-use-unmatched": 11,
       "script-def-unused": 242
@@ -297,35 +295,33 @@
     "name": "immich",
     "desc": "TS+Svelte photo management",
     "files_scanned": 3846,
-    "time_seconds": 2.45,
-    "total_anchors": 575,
-    "total_seams": 46,
-    "total_orphans": 446,
+    "time_seconds": 3.49,
+    "total_anchors": 602,
+    "total_seams": 48,
+    "total_orphans": 471,
     "total_discoveries": 0,
     "anchors_by_kind": {
       "script_def": 123,
-      "env_def": 206,
+      "env_def": 237,
       "script_use": 72,
       "route_call": 8,
       "env_read": 131,
-      "route_def": 29,
+      "route_def": 27,
       "template_file": 1,
-      "task_def": 3,
-      "urlname_def": 2
+      "task_def": 3
     },
     "seams_by_kind": {
-      "env": 42,
+      "env": 44,
       "route": 4
     },
     "seams_by_grade": {
-      "anchored": 46
+      "anchored": 48
     },
     "orphans_by_problem": {
       "env-use-unmatched": 104,
-      "env-def-unused": 182,
+      "env-def-unused": 211,
       "route-call-unmatched": 4,
-      "route-def-uncalled": 27,
-      "urlname-def-unused": 2,
+      "route-def-uncalled": 25,
       "task-def-uncalled": 3,
       "script-use-unmatched": 1,
       "script-def-unused": 123
@@ -336,7 +332,7 @@
     "name": "listmonk",
     "desc": "Go+Vue newsletter manager",
     "files_scanned": 506,
-    "time_seconds": 0.35,
+    "time_seconds": 0.5,
     "total_anchors": 185,
     "total_seams": 3,
     "total_orphans": 166,
@@ -368,13 +364,13 @@
     "name": "maybe",
     "desc": "Ruby+React finance app",
     "files_scanned": 1601,
-    "time_seconds": 0.39,
-    "total_anchors": 89,
+    "time_seconds": 0.58,
+    "total_anchors": 90,
     "total_seams": 1,
-    "total_orphans": 82,
+    "total_orphans": 83,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_def": 72,
+      "env_def": 73,
       "script_use": 1,
       "route_call": 5,
       "script_def": 6,
@@ -387,7 +383,7 @@
       "anchored": 1
     },
     "orphans_by_problem": {
-      "env-def-unused": 72,
+      "env-def-unused": 73,
       "route-call-unmatched": 5,
       "script-def-unused": 5
     },
@@ -397,32 +393,32 @@
     "name": "documenso",
     "desc": "Next.js document signing",
     "files_scanned": 2794,
-    "time_seconds": 2.17,
-    "total_anchors": 844,
-    "total_seams": 127,
-    "total_orphans": 740,
+    "time_seconds": 3.23,
+    "total_anchors": 866,
+    "total_seams": 998,
+    "total_orphans": 505,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_def": 219,
+      "env_def": 220,
       "script_use": 10,
       "script_def": 80,
-      "route_def": 49,
+      "route_def": 70,
       "route_call": 411,
       "env_read": 75
     },
     "seams_by_kind": {
       "env": 106,
-      "route": 2,
+      "route": 873,
       "script": 19
     },
     "seams_by_grade": {
-      "anchored": 127
+      "anchored": 998
     },
     "orphans_by_problem": {
       "env-use-unmatched": 30,
-      "env-def-unused": 187,
-      "route-call-unmatched": 409,
-      "route-def-uncalled": 47,
+      "env-def-unused": 188,
+      "route-call-unmatched": 168,
+      "route-def-uncalled": 52,
       "script-def-unused": 67
     },
     "error": null
@@ -431,13 +427,13 @@
     "name": "rallly",
     "desc": "Next.js scheduling polls",
     "files_scanned": 1436,
-    "time_seconds": 0.73,
-    "total_anchors": 362,
-    "total_seams": 141,
-    "total_orphans": 234,
+    "time_seconds": 1.1,
+    "total_anchors": 371,
+    "total_seams": 146,
+    "total_orphans": 235,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_def": 74,
+      "env_def": 83,
       "script_use": 1,
       "script_def": 78,
       "env_read": 163,
@@ -445,17 +441,18 @@
       "route_call": 9
     },
     "seams_by_kind": {
-      "env": 141
+      "env": 141,
+      "route": 5
     },
     "seams_by_grade": {
-      "anchored": 138,
+      "anchored": 143,
       "corroborated": 3
     },
     "orphans_by_problem": {
       "env-use-unmatched": 86,
-      "env-def-unused": 24,
-      "route-call-unmatched": 9,
-      "route-def-uncalled": 37,
+      "env-def-unused": 33,
+      "route-call-unmatched": 4,
+      "route-def-uncalled": 34,
       "script-def-unused": 78
     },
     "error": null
@@ -464,34 +461,34 @@
     "name": "formbricks",
     "desc": "Next.js survey platform",
     "files_scanned": 4105,
-    "time_seconds": 3.71,
-    "total_anchors": 1018,
-    "total_seams": 301,
-    "total_orphans": 714,
+    "time_seconds": 5.64,
+    "total_anchors": 1020,
+    "total_seams": 308,
+    "total_orphans": 704,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_def": 377,
+      "env_def": 378,
       "script_use": 23,
       "template_file": 2,
       "script_def": 177,
       "route_call": 30,
       "route_def": 92,
-      "env_read": 317
+      "env_read": 318
     },
     "seams_by_kind": {
       "env": 280,
-      "route": 19,
+      "route": 26,
       "script": 2
     },
     "seams_by_grade": {
-      "anchored": 244,
+      "anchored": 251,
       "corroborated": 57
     },
     "orphans_by_problem": {
-      "env-use-unmatched": 187,
-      "env-def-unused": 259,
-      "route-call-unmatched": 11,
-      "route-def-uncalled": 81,
+      "env-use-unmatched": 188,
+      "env-def-unused": 260,
+      "route-call-unmatched": 4,
+      "route-def-uncalled": 76,
       "template-file-unreferenced": 1,
       "script-def-unused": 175
     },
@@ -501,32 +498,32 @@
     "name": "papermark",
     "desc": "Next.js document sharing",
     "files_scanned": 1703,
-    "time_seconds": 1.96,
-    "total_anchors": 1062,
-    "total_seams": 558,
-    "total_orphans": 445,
+    "time_seconds": 2.79,
+    "total_anchors": 1064,
+    "total_seams": 600,
+    "total_orphans": 393,
     "total_discoveries": 0,
     "anchors_by_kind": {
       "env_def": 40,
-      "env_read": 408,
+      "env_read": 410,
       "route_call": 318,
       "route_def": 283,
       "script_def": 13
     },
     "seams_by_kind": {
       "env": 193,
-      "route": 365
+      "route": 407
     },
     "seams_by_grade": {
-      "anchored": 528,
-      "corroborated": 30
+      "anchored": 565,
+      "corroborated": 35
     },
     "orphans_by_problem": {
-      "env-use-unmatched": 215,
+      "env-use-unmatched": 217,
       "env-def-unused": 13,
-      "route-call-unmatched": 73,
+      "route-call-unmatched": 37,
       "route-call-unspecific": 3,
-      "route-def-uncalled": 128,
+      "route-def-uncalled": 110,
       "script-def-unused": 13
     },
     "error": null
@@ -535,14 +532,14 @@
     "name": "dify",
     "desc": "Flask+React LLM app platform",
     "files_scanned": 13480,
-    "time_seconds": 20.2,
-    "total_anchors": 3740,
-    "total_seams": 1469,
-    "total_orphans": 1767,
+    "time_seconds": 27.32,
+    "total_anchors": 3760,
+    "total_seams": 1503,
+    "total_orphans": 1752,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_read": 1197,
-      "env_def": 1770,
+      "env_read": 1194,
+      "env_def": 1793,
       "script_use": 55,
       "script_def": 135,
       "template_file": 61,
@@ -555,17 +552,17 @@
     },
     "seams_by_kind": {
       "env": 1357,
-      "route": 110,
+      "route": 144,
       "script": 2
     },
     "seams_by_grade": {
-      "anchored": 1469
+      "anchored": 1503
     },
     "orphans_by_problem": {
-      "env-use-unmatched": 487,
-      "env-def-unused": 708,
-      "route-call-unmatched": 210,
-      "route-def-uncalled": 54,
+      "env-use-unmatched": 484,
+      "env-def-unused": 731,
+      "route-call-unmatched": 177,
+      "route-def-uncalled": 52,
       "template-ref-missing": 1,
       "template-file-unreferenced": 60,
       "urlname-def-unused": 23,
@@ -579,13 +576,13 @@
     "name": "open-webui",
     "desc": "Svelte+Python chat UI",
     "files_scanned": 4951,
-    "time_seconds": 3.53,
-    "total_anchors": 1896,
-    "total_seams": 110,
-    "total_orphans": 1762,
+    "time_seconds": 4.36,
+    "total_anchors": 1919,
+    "total_seams": 100,
+    "total_orphans": 1773,
     "total_discoveries": 3,
     "anchors_by_kind": {
-      "env_def": 56,
+      "env_def": 79,
       "script_use": 8,
       "script_def": 24,
       "env_read": 877,
@@ -596,18 +593,18 @@
     },
     "seams_by_kind": {
       "env": 33,
-      "route": 73,
+      "route": 63,
       "script": 4
     },
     "seams_by_grade": {
-      "anchored": 110
+      "anchored": 74,
+      "corroborated": 26
     },
     "orphans_by_problem": {
       "env-use-unmatched": 849,
-      "env-def-unused": 30,
-      "route-call-unmatched": 379,
-      "route-call-unspecific": 2,
-      "route-def-uncalled": 481,
+      "env-def-unused": 53,
+      "route-call-unmatched": 377,
+      "route-def-uncalled": 473,
       "urlname-use-unmatched": 1,
       "script-def-unused": 20
     },
@@ -617,34 +614,34 @@
     "name": "lobe-chat",
     "desc": "Next.js chat application",
     "files_scanned": 12970,
-    "time_seconds": 13.26,
-    "total_anchors": 2760,
-    "total_seams": 2671,
-    "total_orphans": 2083,
+    "time_seconds": 19.26,
+    "total_anchors": 2776,
+    "total_seams": 2689,
+    "total_orphans": 2079,
     "total_discoveries": 2,
     "anchors_by_kind": {
       "env_read": 1799,
       "template_file": 13,
-      "env_def": 442,
+      "env_def": 453,
       "script_use": 90,
       "script_def": 243,
       "route_call": 58,
-      "route_def": 115
+      "route_def": 120
     },
     "seams_by_kind": {
-      "env": 2633,
-      "route": 15,
+      "env": 2638,
+      "route": 28,
       "script": 23
     },
     "seams_by_grade": {
-      "anchored": 2560,
+      "anchored": 2578,
       "corroborated": 111
     },
     "orphans_by_problem": {
       "env-use-unmatched": 1501,
-      "env-def-unused": 193,
-      "route-call-unmatched": 45,
-      "route-def-uncalled": 104,
+      "env-def-unused": 200,
+      "route-call-unmatched": 32,
+      "route-def-uncalled": 106,
       "script-def-unused": 240
     },
     "error": null
@@ -653,32 +650,32 @@
     "name": "twenty",
     "desc": "TS+React CRM",
     "files_scanned": 25930,
-    "time_seconds": 14.94,
-    "total_anchors": 1365,
-    "total_seams": 1416,
-    "total_orphans": 778,
+    "time_seconds": 22.42,
+    "total_anchors": 1385,
+    "total_seams": 1897,
+    "total_orphans": 553,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_def": 306,
+      "env_def": 319,
       "script_use": 140,
       "script_def": 176,
       "template_file": 8,
       "route_call": 285,
-      "env_read": 438,
-      "route_def": 12
+      "env_read": 441,
+      "route_def": 16
     },
     "seams_by_kind": {
-      "env": 1347,
-      "route": 5,
+      "env": 1370,
+      "route": 463,
       "script": 64
     },
     "seams_by_grade": {
-      "anchored": 1416
+      "anchored": 1897
     },
     "orphans_by_problem": {
       "env-use-unmatched": 168,
-      "env-def-unused": 202,
-      "route-call-unmatched": 280,
+      "env-def-unused": 206,
+      "route-call-unmatched": 51,
       "route-def-uncalled": 8,
       "template-file-unreferenced": 2,
       "script-use-unmatched": 5,
@@ -690,32 +687,32 @@
     "name": "infisical",
     "desc": "Next.js secret management",
     "files_scanned": 12972,
-    "time_seconds": 9.55,
-    "total_anchors": 1652,
-    "total_seams": 314,
-    "total_orphans": 1460,
+    "time_seconds": 13.85,
+    "total_anchors": 1697,
+    "total_seams": 328,
+    "total_orphans": 1494,
     "total_discoveries": 0,
     "anchors_by_kind": {
-      "env_def": 456,
+      "env_def": 498,
       "script_use": 32,
       "script_def": 109,
-      "env_read": 188,
+      "env_read": 190,
       "route_call": 555,
-      "route_def": 309,
+      "route_def": 310,
       "template_file": 3
     },
     "seams_by_kind": {
-      "env": 284,
+      "env": 298,
       "script": 30
     },
     "seams_by_grade": {
-      "anchored": 314
+      "anchored": 328
     },
     "orphans_by_problem": {
       "env-use-unmatched": 119,
-      "env-def-unused": 382,
+      "env-def-unused": 415,
       "route-call-unmatched": 555,
-      "route-def-uncalled": 309,
+      "route-def-uncalled": 310,
       "template-file-unreferenced": 1,
       "script-def-unused": 94
     },
@@ -725,15 +722,15 @@
     "name": "hoppscotch",
     "desc": "Vue.js API development",
     "files_scanned": 2362,
-    "time_seconds": 2.3,
-    "total_anchors": 422,
+    "time_seconds": 3.26,
+    "total_anchors": 426,
     "total_seams": 79,
-    "total_orphans": 300,
+    "total_orphans": 304,
     "total_discoveries": 0,
     "anchors_by_kind": {
       "env_def": 119,
       "script_use": 29,
-      "env_read": 96,
+      "env_read": 100,
       "script_def": 143,
       "template_file": 5,
       "route_call": 30
@@ -745,7 +742,7 @@
       "anchored": 79
     },
     "orphans_by_problem": {
-      "env-use-unmatched": 26,
+      "env-use-unmatched": 30,
       "env-def-unused": 101,
       "route-call-unmatched": 30,
       "script-def-unused": 143

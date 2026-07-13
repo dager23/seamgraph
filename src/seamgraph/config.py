@@ -38,11 +38,13 @@ def _coerce(cfg: Config, data: dict[str, Any]) -> Config:
         "corroborate_support",
         "discover_support",
     ):
-        if isinstance(data.get(key), int):
-            setattr(cfg, key, data[key])
+        val = data.get(key)
+        if isinstance(val, int) and not isinstance(val, bool):
+            setattr(cfg, key, val)
     for key in ("corroborate_confidence", "discover_confidence"):
-        if isinstance(data.get(key), (int, float)):
-            setattr(cfg, key, float(data[key]))
+        val = data.get(key)
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            setattr(cfg, key, float(val))
     for key, attr in (("exclude", "exclude"), ("strip_url_prefixes", "strip_url_prefixes")):
         val = data.get(key)
         if isinstance(val, list) and all(isinstance(v, str) for v in val):

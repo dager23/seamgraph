@@ -186,3 +186,9 @@ class TestDispatch:
     def test_unknown_file(self) -> None:
         anchors = extract_config_file("readme.md", "hello")
         assert len(anchors) == 0
+
+
+class TestDockerfileArgAtEol:
+    def test_arg_with_no_default(self) -> None:
+        anchors = extract_dockerfile("Dockerfile", "ARG PORT\nARG NODE_VERSION=18\n")
+        assert [a.key for a in anchors] == ["PORT", "NODE_VERSION"]

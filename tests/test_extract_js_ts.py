@@ -117,3 +117,48 @@ class TestEdgeCases:
         anchors = extract_js_ts("App.vue", src)
         calls = [a for a in anchors if a.kind is AnchorKind.ROUTE_CALL]
         assert len(calls) == 1
+
+
+class TestEnvDestructuring:
+    def test_simple_destructure(self) -> None:
+        src = "const { API_URL, DEBUG } = process.env;\n"
+        keys = [a.key for a in extract_js_ts("app.ts", src)]
+        assert keys == ["API_URL", "DEBUG"]
+
+    def test_rename_and_default(self) -> None:
+        src = 'let { SENTRY_DSN: dsn = "", MODE } = import.meta.env\n'
+        keys = [a.key for a in extract_js_ts("app.ts", src)]
+        assert keys == ["SENTRY_DSN"]  # MODE is vite-builtin, filtered
+
+
+class TestLeadingHole:
+    def test_base_url_variable_dropped(self) -> None:
+        src = "await fetch(`${API_URL}/api/users/${id}`)\n"
+        anchors = extract_js_ts("app.ts", src)
+        route = [a for a in anchors if a.kind.value == "route_call"]
+        assert len(route) == 1
+        assert route[0].key == "/api/users/*"
+
+
+class TestMounts:
+    def test_hono_route_mount(self) -> None:
+        src = 'app.route("/api/v2-beta", apiV2Router)\n'
+        anchors = extract_js_ts("server/router.ts", src)
+        assert len(anchors) == 1
+        assert anchors[0].key == "/api/v2-beta/**"
+        assert "mounted sub-app" in anchors[0].detail
+
+    def test_express_use_mount(self) -> None:
+        src = 'app.use("/webhooks", webhookRouter);\n'
+        anchors = extract_js_ts("server.js", src)
+        assert anchors[0].key == "/webhooks/**"
+
+    def test_chained_route_not_a_mount(self) -> None:
+        # express chaining: router.route("/x").get(...) has no second argument
+        src = 'router.route("/items").get(list).post(create)\n'
+        anchors = extract_js_ts("routes.js", src)
+        assert all("mounted" not in a.detail for a in anchors)
+
+    def test_root_mount_ignored(self) -> None:
+        src = 'app.use("/", express.static("public"));\n'
+        assert extract_js_ts("server.js", src) == []

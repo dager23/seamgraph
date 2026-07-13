@@ -88,18 +88,6 @@ def _anchor_to_row(a: Anchor) -> tuple[str, str, str, str, int, str, str]:
     return (a.kind.value, a.key, a.raw, a.path, a.line, a.detail, json.dumps(a.extra))
 
 
-def _row_to_anchor(row: sqlite3.Row) -> Anchor:
-    return Anchor(
-        kind=AnchorKind(row["kind"]),
-        key=row["key"],
-        raw=row["raw"],
-        path=row["path"],
-        line=row["line"],
-        detail=row["detail"],
-        extra=json.loads(row["extra"]),
-    )
-
-
 class SeamGraph:
     """The main indexing and query object."""
 
@@ -163,20 +151,29 @@ class SeamGraph:
         stats["files_changed"] = len(changed_files)
 
         if not changed_files and not full:
+            # nothing to re-extract: report what the (still-valid) graph holds
+            for key, table in (
+                ("anchors", "anchors"),
+                ("seams", "seams"),
+                ("orphans", "orphans"),
+                ("discoveries", "discoveries"),
+            ):
+                row = conn.execute(f"SELECT COUNT(*) AS n FROM {table}").fetchone()
+                stats[key] = row["n"]
             conn.close()
             return stats
 
         # Full re-extract (simpler and correct; incremental per-file is a v0.2 optimization)
         all_anchors: list[Anchor] = []
         py_facts: dict[str, PyFileFacts] = {}
+        prefixes = self.config.strip_url_prefixes
 
         for rel, text in sorted(file_texts.items()):
             if rel.endswith(".py"):
                 # anchors are NOT collected here: resolve_routes() returns every
                 # Python anchor (with routes/auto-task names resolved cross-file)
-                py_facts[rel] = extract_python(rel, text)
+                py_facts[rel] = extract_python(rel, text, strip_prefixes=prefixes)
             else:
-                prefixes = self.config.strip_url_prefixes
                 all_anchors.extend(extract_js_ts(rel, text, strip_prefixes=prefixes))
                 all_anchors.extend(extract_config_file(rel, text))
                 all_anchors.extend(extract_file_routes(rel, text))
@@ -189,7 +186,7 @@ class SeamGraph:
         stats["anchors"] = len(all_anchors)
 
         # Match anchors into seams
-        seams, orphans = match_all(all_anchors, strip_prefixes=self.config.strip_url_prefixes)
+        seams, orphans = match_all(all_anchors)
 
         # Co-change mining and corroboration
         anchor_paths = {a.path for a in all_anchors}

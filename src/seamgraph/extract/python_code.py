@@ -120,9 +120,10 @@ def _internal_url(url: str) -> bool:
 
 
 class _Visitor(ast.NodeVisitor):
-    def __init__(self, path: str, facts: PyFileFacts) -> None:
+    def __init__(self, path: str, facts: PyFileFacts, strip_prefixes: tuple[str, ...] = ()) -> None:
         self.path = path
         self.f = facts
+        self.strip_prefixes = strip_prefixes
         self._class_stack: list[str] = []
 
     # -- imports ---------------------------------------------------------
@@ -250,7 +251,9 @@ class _Visitor(ast.NodeVisitor):
     # -- subscripts: os.environ["X"] --------------------------------------
     def visit_Subscript(self, node: ast.Subscript) -> None:
         names = _chain(node.value)
-        if names[-1:] == ["environ"] and (len(names) == 1 or names[-2:] == ["os", "environ"]):
+        if names[-1:] == ["environ"] and (
+            (len(names) == 1 and self._from("environ", ("os",))) or names[-2:] == ["os", "environ"]
+        ):
             key = _lit(node.slice)
             if key:
                 self.f.anchors.append(
@@ -305,15 +308,14 @@ class _Visitor(ast.NodeVisitor):
         """Django REST Framework routers: router.register(r"views", ViewSet).
 
         Anchored on: a .register(...) call whose receiver name contains
-        "router" (or the file imports rest_framework) with a string-literal
-        prefix. ViewSets expose list/detail routes; we emit both, suffix-
-        matchable since the router's include() mount point is elsewhere.
+        "router", with a string-literal prefix. ViewSets expose list/detail
+        routes; we emit both, suffix-matchable since the router's include()
+        mount point is elsewhere.
         """
         if names[-1] != "register" or not node.args:
             return
         receiver_hint = any("router" in part.lower() for part in names[:-1])
-        drf_import = any(m.split(".")[0] == "rest_framework" for m in self.f.imports.values())
-        if not receiver_hint and not drf_import:
+        if not receiver_hint:
             return
         prefix = _lit(node.args[0])
         if prefix is None or not prefix or prefix.startswith("/"):
@@ -400,7 +402,7 @@ class _Visitor(ast.NodeVisitor):
         url, open_tail = parts
         if not _internal_url(url):
             return
-        pattern = normalize_call(url, open_tail=open_tail)
+        pattern = normalize_call(url, strip_prefixes=self.strip_prefixes, open_tail=open_tail)
         if pattern is None:
             return
         self.f.anchors.append(
@@ -535,7 +537,8 @@ class _Visitor(ast.NodeVisitor):
                     f'{tail}(..., name="{name}")',
                 )
             )
-        if tail in ("path", "url") and not _is_include_call(node):
+        if tail == "path" and not _is_include_call(node):
+            # re_path()/url() take regexes; their URL shape is not literal
             self.f.routes.append(
                 RawRoute(
                     "", "/" + route.lstrip("/"), "", node.lineno, "django", f"django {tail}(...)"
@@ -610,6 +613,10 @@ class _Visitor(ast.NodeVisitor):
         var = names[0]
         tail = names[-1]
         path_arg = _lit(dec.args[0]) if dec.args else _kw_str(dec, "path") or _kw_str(dec, "rule")
+        if path_arg is not None and path_arg != "" and not path_arg.startswith("/"):
+            # Flask and FastAPI both require absolute rule strings; anything
+            # else (@mock.patch("pkg.attr"), cache.get("key")) is not a route
+            return
         if path_arg is None:
             # dynamic route path (helper-wrapped rule): the URL is unknowable
             # but the endpoint name is still the view function's name
@@ -704,7 +711,7 @@ def _is_settings_module(path: str) -> bool:
     ) or (base.startswith("settings") and base.endswith(".py"))
 
 
-def extract_python(path: str, source: str) -> PyFileFacts:
+def extract_python(path: str, source: str, strip_prefixes: tuple[str, ...] = ()) -> PyFileFacts:
     facts = PyFileFacts()
     try:
         with warnings.catch_warnings():
@@ -715,7 +722,7 @@ def extract_python(path: str, source: str) -> PyFileFacts:
         return facts
     # pathologically nested generated code: keep whatever was extracted
     with contextlib.suppress(RecursionError):
-        _Visitor(path, facts).visit(tree)
+        _Visitor(path, facts, strip_prefixes).visit(tree)
     return facts
 
 

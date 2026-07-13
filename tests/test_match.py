@@ -178,3 +178,15 @@ class TestMatchAll:
         kinds = {s.kind for s in seams}
         assert SeamKind.ENV in kinds
         assert SeamKind.ROUTE in kinds
+
+
+class TestSeamSidesConsistency:
+    def test_seam_sides_covers_every_kind(self) -> None:
+        # SEAM_SIDES is the documented pairing contract; every SeamKind must
+        # have exactly one (use, definition) AnchorKind pair
+        from seamgraph.models import SEAM_SIDES, AnchorKind, SeamKind
+
+        assert set(SEAM_SIDES) == set(SeamKind)
+        used = [k for pair in SEAM_SIDES.values() for k in pair]
+        assert len(used) == len(set(used))  # no anchor kind serves two seams
+        assert set(used) == set(AnchorKind)  # every anchor kind participates

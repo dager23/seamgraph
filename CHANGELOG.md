@@ -8,9 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
-- **Core extractors**: Python (ast-based), JS/TS (anchored regex), config files
-  (.env, Dockerfile, docker-compose, GitHub Actions, Kubernetes manifests,
-  pyproject.toml, package.json, Makefile), Jinja/Django templates.
+- **Core extractors**: Python (ast-based), JS/TS (anchored regex, including
+  `const {X} = process.env` destructuring), config files (.env, Dockerfile,
+  docker-compose, GitHub Actions, Kubernetes manifests, pyproject.toml,
+  package.json, Makefile), Jinja/Django templates (HTML-family files anywhere
+  are render-target candidates, not just `templates/` directories).
 - **Route extraction across registration styles**: decorator routes
   (FastAPI/Flask, including routers/blueprints imported from other modules),
   Django `path()`, Flask-RESTful `add_resource`, DRF `router.register`,
@@ -22,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   resolution for `include_router`/`register_blueprint`, method-aware
   matching, and a fan-out cap (a concat call matching more than 8 handlers
   is reported as `route-call-unspecific` instead of asserting seams).
+  Catch-all definitions (`[...path]` routes, `app.use("/x", sub)` /
+  hono `app.route("/x", sub)` mounts) match everything below their prefix;
+  a leading template-literal hole (`` `${API_URL}/api/users` ``) is treated
+  as a base-URL variable, not a path segment.
 - **Kind-specific matchers**: env chains, route linking, template refs,
   URL names (Django namespaces and Flask `blueprint.view` qualifiers),
   Celery tasks, scripts (matched within the same script type only),

@@ -73,7 +73,8 @@ def impact(root: Path, paths: list[str]) -> dict[str, Any]:
     these are the seams an agent should check for breakage.
     """
     g = _graph(root)
-    change_set = set(paths)
+    # accept Windows-style separators; the graph stores posix paths
+    change_set = {p.replace("\\", "/") for p in paths}
     all_seams = g.query_seams()
 
     impacted: list[dict[str, Any]] = []

@@ -1,6 +1,6 @@
-"""CLI entry point: ``seamgraph index | map | for <ref> | impact <range> | check | serve``.
+"""CLI entry point: ``seamgraph index | map | for <ref> | impact <paths> | check | serve``.
 
-All commands output JSON by default (``--json``), or human-readable tables.
+Human-readable output by default; ``--json`` for machine-readable output.
 """
 
 from __future__ import annotations
@@ -17,21 +17,6 @@ from . import api
 def _json_out(data: Any) -> None:
     json.dump(data, sys.stdout, indent=2, default=str)
     sys.stdout.write("\n")
-
-
-def _table_out(rows: list[dict[str, Any]], columns: list[str] | None = None) -> None:
-    """Simple table printer."""
-    if not rows:
-        print("(no results)")
-        return
-    if columns is None:
-        columns = list(rows[0].keys())
-    widths = {c: max(len(c), max(len(str(r.get(c, ""))[:60]) for r in rows)) for c in columns}
-    header = " | ".join(c.ljust(widths[c]) for c in columns)
-    print(header)
-    print("-+-".join("-" * widths[c] for c in columns))
-    for r in rows:
-        print(" | ".join(str(r.get(c, ""))[:60].ljust(widths[c]) for c in columns))
 
 
 def cmd_index(args: argparse.Namespace) -> int:

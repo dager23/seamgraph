@@ -109,3 +109,31 @@ class TestMatchRoute:
         defn = RoutePattern(("*",))
         score = match_route(call, defn)
         assert score is None
+
+
+class TestLeadingHole:
+    def test_leading_hole_is_base_url(self) -> None:
+        p = normalize_call("${x}/api/users")
+        assert p is not None and p.segments == ("api", "users")
+
+    def test_mid_path_hole_kept(self) -> None:
+        p = normalize_call("/api/${x}/users")
+        assert p is not None and p.segments == ("api", "*", "users")
+
+
+class TestDefCatchAll:
+    def test_def_tail_matches_deep_call(self) -> None:
+        call = RoutePattern(("api", "v2", "document", "*"))
+        defn = RoutePattern(("api", "v2", "**"))
+        assert match_route(call, defn) == 2
+
+    def test_def_tail_matches_zero_segments(self) -> None:
+        # optional catch-all [[...path]] also serves the bare prefix
+        call = RoutePattern(("api", "auth"))
+        defn = RoutePattern(("api", "auth", "**"))
+        assert match_route(call, defn) == 2
+
+    def test_call_tail_still_requires_one_segment(self) -> None:
+        call = RoutePattern(("api", "users", "**"))
+        defn = RoutePattern(("api", "users"))
+        assert match_route(call, defn) is None

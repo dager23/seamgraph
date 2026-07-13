@@ -96,6 +96,10 @@ def normalize_call(
             segs.append(PARAM)
         else:
             segs.append(seg)
+    if segs[:1] == [PARAM] and path.lstrip().startswith("${"):
+        # a leading hole (`${API_URL}/api/users`, f"{BASE}/api/users") is a
+        # base-URL variable in practice, not a path segment
+        segs = segs[1:]
     if open_tail:
         # trailing concatenation: last written segment may be a prefix of a longer path
         segs.append(TAIL)
@@ -133,10 +137,19 @@ def match_route(
 
 
 def _match_from(call: tuple[str, ...], defn: tuple[str, ...]) -> int | None:
-    """Segment alignment; TAIL in call consumes 1+ remaining definition segments."""
+    """Segment alignment.
+
+    A TAIL on the call side (concatenation: ``fetch("/api/x/" + rest)``)
+    consumes 1+ remaining definition segments. A TAIL on the definition side
+    (catch-all handlers: ``[...path]`` routes, ``app.use("/x", sub)`` mounts)
+    consumes 0+ remaining call segments.
+    """
     ci, di, score = 0, 0, 0
     while ci < len(call) and di < len(defn):
         c, d = call[ci], defn[di]
+        if d == TAIL:
+            # definition catch-all swallows the rest of the call
+            return score
         if c == TAIL:
             # consumes the rest of the definition (must be at least one segment)
             return score if len(defn) - di >= 1 else None
@@ -150,7 +163,7 @@ def _match_from(call: tuple[str, ...], defn: tuple[str, ...]) -> int | None:
         di += 1
     if ci == len(call) and di == len(defn):
         return score
-    # allow a single trailing TAIL left over on the call side matching nothing? No:
-    # TAIL requires >=1 segment, handled above. Trailing-slash asymmetry is handled
-    # by _split dropping empty segments.
+    if ci == len(call) and di == len(defn) - 1 and defn[di] == TAIL:
+        # call exhausted exactly at the definition's optional catch-all
+        return score
     return None
