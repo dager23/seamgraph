@@ -104,18 +104,44 @@ def pick_real_env(anchors: list[Anchor]) -> str | None:
     return sorted(defs, key=lambda x: x.key)[0].key if defs else None
 
 
-def pick_real_route(anchors: list[Anchor]) -> str | None:
-    """A fully literal route the repo really defines (no params, no catch-all)."""
+#: Value substituted for a path parameter when probing a parameterized route.
+PARAM_VALUE = "4242"
+
+
+def pick_real_route(anchors: list[Anchor]) -> tuple[str, str] | None:
+    """Pick a route the repo really defines, and a URL that must reach it.
+
+    Prefers a fully literal route, where the probe URL is the route itself.
+    Falls back to a parameterized one with a concrete value substituted for
+    each ``*`` segment, so repos whose routes are all parameterized still get
+    a true-positive case instead of being skipped. Returns
+    ``(definition_key, probe_url)``.
+    """
     defs = [a for a in anchors if a.kind is AnchorKind.ROUTE_DEF]
-    literal = [
-        a
-        for a in defs
-        if "*" not in a.key and a.key.count("/") >= 2 and not a.maybe_prefixed and len(a.key) > 5
+    usable = [a for a in defs if "**" not in a.key and a.key.count("/") >= 2 and len(a.key) > 5]
+
+    def literal(a: Anchor) -> bool:
+        return "*" not in a.key
+
+    # Prefer a route mounted at a known absolute path over a suffix-matchable
+    # one (Django/DRF register everything through include(), so on those repos
+    # only the last tier exists), and a literal path over a parameterized one.
+    tiers = [
+        [a for a in usable if literal(a) and not a.maybe_prefixed],
+        [a for a in usable if not literal(a) and not a.maybe_prefixed],
+        [a for a in usable if literal(a) and a.maybe_prefixed],
+        [a for a in usable if not literal(a) and a.maybe_prefixed],
     ]
-    return sorted(literal, key=lambda x: x.key)[0].key if literal else None
+    for tier in tiers:
+        if not tier:
+            continue
+        key = sorted(tier, key=lambda x: x.key)[0].key
+        probe = "/".join(PARAM_VALUE if seg == "*" else seg for seg in key.split("/"))
+        return key, probe
+    return None
 
 
-def seed_probes(root: Path, real_env: str | None, real_route: str | None) -> None:
+def seed_probes(root: Path, real_env: str | None, probe_url: str | None) -> None:
     d = root / PROBE_DIR
     d.mkdir(exist_ok=True)
     lines = ["import os", "", 'absent = os.environ["' + ABSENT_VAR + '"]']
@@ -123,8 +149,8 @@ def seed_probes(root: Path, real_env: str | None, real_route: str | None) -> Non
         lines.append('present = os.environ["' + real_env + '"]')
     (d / "probe.py").write_text("\n".join(lines) + "\n", encoding="utf-8")
     js = ['export const absent = () => fetch("' + ABSENT_ROUTE + '");']
-    if real_route:
-        js.append('export const present = () => fetch("' + real_route + '");')
+    if probe_url:
+        js.append('export const present = () => fetch("' + probe_url + '");')
     (d / "probe.js").write_text("\n".join(js) + "\n", encoding="utf-8")
 
 
@@ -157,9 +183,10 @@ def check_repo(root: Path, name: str) -> RepoResult:
     base = extract_all(root)
     res.files = len(list_files(root, exclude=Config().exclude))
     real_env = pick_real_env(base)
-    real_route = pick_real_route(base)
+    picked = pick_real_route(base)
+    real_route, probe_url = picked if picked else (None, None)
 
-    seed_probes(root, real_env, real_route)
+    seed_probes(root, real_env, probe_url)
     try:
         anchors = extract_all(root)
         seams, orphans = match_all(anchors)
@@ -192,19 +219,22 @@ def check_repo(root: Path, name: str) -> RepoResult:
         )
 
         # true positive: call to a route the repo really defines
-        if real_route:
+        if real_route and probe_url:
             hit = [
                 s
                 for s in seams
-                if s.kind is SeamKind.ROUTE and s.use.path == probe_js and s.key == real_route
+                if s.kind is SeamKind.ROUTE
+                and s.use.path == probe_js
+                and s.definition.key == real_route
             ]
+            note = "" if probe_url == real_route else f" via {probe_url}"
             res.checks["TP-route"] = (
-                f"PASS ({real_route} -> {hit[0].definition.path})"
+                f"PASS ({real_route}{note} -> {hit[0].definition.path})"
                 if hit
-                else f"FAIL (no seam for real route {real_route})"
+                else f"FAIL (no seam for real route {real_route} probed as {probe_url})"
             )
         else:
-            res.checks["TP-route"] = "SKIP (no fully-literal route def found)"
+            res.checks["TP-route"] = "SKIP (repo defines no unambiguous route)"
 
         # true negative: call to a path that matches no handler
         bogus_r = [s for s in seams if s.use.path == probe_js and ABSENT_ROUTE in s.use.raw]

@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from seamgraph.extract.python_code import extract_python, resolve_routes
+from seamgraph.extract.python_code import (
+    _regex_to_route,
+    extract_python,
+    resolve_routes,
+)
 from seamgraph.models import AnchorKind
 
 
@@ -286,3 +290,48 @@ class TestImportedBlueprint:
         assert defs[0].key == "/api/admin/outdated"
         assert defs[0].extra["framework"] == "flask"
         assert defs[0].extra["method"] == "GET"
+
+
+class TestRePathConversion:
+    """Django projects predating path() register everything as regexes.
+
+    Skipping re_path outright left whole Django codebases (saleor, for one)
+    with zero routes despite the README claiming Django support. Only plainly
+    literal regexes are converted; anything still carrying regex syntax is
+    rejected rather than guessed at.
+    """
+
+    def test_literal_regex(self) -> None:
+        assert _regex_to_route(r"^graphql/$") == "/graphql"
+
+    def test_named_group_becomes_param(self) -> None:
+        assert _regex_to_route(r"^plugins/global/(?P<pid>[.0-9A-Za-z_\-]+)/") == "/plugins/global/*"
+
+    def test_multi_segment_group_becomes_tail(self) -> None:
+        assert _regex_to_route(r"^static/(?P<path>.*)$") == "/static/**"
+
+    def test_escaped_dot_is_literal(self) -> None:
+        assert _regex_to_route(r"^\.well-known/jwks.json$") == "/.well-known/jwks.json"
+
+    def test_alternation_rejected(self) -> None:
+        assert _regex_to_route(r"^(a|b)/x$") is None
+
+    def test_optional_group_rejected(self) -> None:
+        assert _regex_to_route(r"^thumb/(?P<i>[\w]+)/(?:(?P<f>[a-z]+)/)?") is None
+
+    def test_nothing_literal_rejected(self) -> None:
+        assert _regex_to_route(r"^(?P<x>\d+)$") is None
+        assert _regex_to_route(r"^$") is None
+
+    def test_re_path_produces_a_route_def(self) -> None:
+        src = (
+            "from django.urls import re_path\n"
+            "from . import views\n"
+            "urlpatterns = [re_path(r'^graphql/$', views.gql, name='api')]\n"
+        )
+        facts = extract_python("app/urls.py", src)
+        resolved = resolve_routes({"app/urls.py": facts})
+        keys = {a.key for a in resolved if a.kind.value == "route_def"}
+        assert keys == {"/graphql"}
+        names = {a.key for a in resolved if a.kind.value == "urlname_def"}
+        assert names == {"api"}

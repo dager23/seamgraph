@@ -537,12 +537,16 @@ class _Visitor(ast.NodeVisitor):
                     f'{tail}(..., name="{name}")',
                 )
             )
-        if tail == "path" and not _is_include_call(node):
-            # re_path()/url() take regexes; their URL shape is not literal
+        if _is_include_call(node):
+            return
+        if tail == "path":
+            rule: str | None = "/" + route.lstrip("/")
+        else:
+            # re_path()/url() take a regex; only convert the plainly literal ones
+            rule = _regex_to_route(route)
+        if rule is not None:
             self.f.routes.append(
-                RawRoute(
-                    "", "/" + route.lstrip("/"), "", node.lineno, "django", f"django {tail}(...)"
-                )
+                RawRoute("", rule, "", node.lineno, "django", f"django {tail}(...)")
             )
 
     # -- decorators: routes and celery tasks --------------------------------
@@ -700,6 +704,48 @@ def _kw_str_list(call: ast.Call, name: str) -> list[str]:
 
 def _is_include_call(node: ast.Call) -> bool:
     return any(isinstance(a, ast.Call) and _chain(a.func)[-1:] == ["include"] for a in node.args)
+
+
+#: A regex group: named or plain. Multi-segment bodies become a ``**`` tail.
+_RE_GROUP = re.compile(r"\((\?P<[^>]+>)?((?:[^()\\]|\\.)*)\)")
+#: Regex metacharacters that must not survive conversion to a literal path.
+_RE_LEFTOVER = re.compile(r"[\[\]{}()+*?|^$\\]")
+
+
+def _regex_to_route(pattern: str) -> str | None:
+    """Convert a Django ``re_path`` regex to a path pattern, or None.
+
+    Django projects that predate ``path()`` register everything as regexes, so
+    skipping them outright leaves whole codebases with no routes at all. Only
+    plainly literal patterns are converted -- every capture group becomes a
+    parameter segment and anything still carrying regex syntax afterwards is
+    rejected rather than guessed at.
+
+    ``r"^plugins/global/(?P<plugin_id>[\\w-]+)/"`` -> ``/plugins/global/*``
+    """
+    if "(?:" in pattern or "|" in pattern:
+        return None  # alternation / optional groups: the URL shape is not one path
+    body = pattern
+    if body.startswith("^"):
+        body = body[1:]
+    if body.endswith("$"):
+        body = body[:-1]
+
+    def _sub(m: re.Match[str]) -> str:
+        inner = m.group(2)
+        # `.*` / `.+` can span separators, so the group is a trailing wildcard
+        return "\x00\x00" if (".*" in inner or ".+" in inner) else "\x00"
+
+    body = _RE_GROUP.sub(_sub, body)
+    # unescape the escapes Django authors actually write in URL regexes
+    body = body.replace("\\.", ".").replace("\\-", "-").replace("\\/", "/").replace("\\w", "\x00")
+    if _RE_LEFTOVER.search(body):
+        return None
+    body = body.replace("\x00\x00", "**").replace("\x00", "*")
+    segments = [s for s in body.split("/") if s]
+    if not segments or all(s in ("*", "**") for s in segments):
+        return None  # nothing literal to anchor a match on
+    return "/" + "/".join(segments)
 
 
 def _is_settings_module(path: str) -> bool:
