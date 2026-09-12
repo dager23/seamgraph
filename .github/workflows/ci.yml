@@ -28,20 +28,58 @@ jobs:
         run: python -m mypy
       - name: Test
         run: python -m pytest --cov=seamgraph --cov-fail-under=80 -q
-      - name: Dogfood
+      - name: Dogfood (seamgraph checks its own repo)
         run: python -m seamgraph.cli check
 
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: test
+  package:
+    # Builds the real artifacts and installs them the way a stranger would.
+    # A green test suite inside the repo says nothing about what `pip install`
+    # actually ships, so both the wheel and the sdist are exercised here.
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write  # PyPI trusted publishing
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install build && python -m build
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Build wheel + sdist
+        run: |
+          python -m pip install build
+          python -m build
+      - name: Install the wheel into a clean venv and run it
+        run: |
+          python -m venv /tmp/wheel-env
+          /tmp/wheel-env/bin/python -m pip install --quiet dist/*.whl
+          cd /tmp
+          /tmp/wheel-env/bin/seamgraph --help
+          /tmp/wheel-env/bin/seamgraph --root "$GITHUB_WORKSPACE" index
+          /tmp/wheel-env/bin/seamgraph --root "$GITHUB_WORKSPACE" map --json > /dev/null
+      - name: Install the sdist into a clean venv and run it
+        # sdists can be missing files the wheel happens to include
+        run: |
+          python -m venv /tmp/sdist-env
+          /tmp/sdist-env/bin/python -m pip install --quiet dist/*.tar.gz
+          cd /tmp
+          /tmp/sdist-env/bin/seamgraph --help
+          /tmp/sdist-env/bin/seamgraph --root "$GITHUB_WORKSPACE" check
+      - name: Exercise the MCP server from the installed package
+        run: |
+          /tmp/wheel-env/bin/python -m pip install --quiet "mcp>=1.2"
+          /tmp/wheel-env/bin/python - <<'PY'
+          import asyncio, sys
+          from mcp import ClientSession, StdioServerParameters
+          from mcp.client.stdio import stdio_client
+          async def main():
+              p = StdioServerParameters(command=sys.executable,
+                                        args=["-m","seamgraph.cli","--root",".","serve"])
+              async with stdio_client(p) as (r,w), ClientSession(r,w) as s:
+                  await s.initialize()
+                  names = sorted(t.name for t in (await s.list_tools()).tools)
+                  assert names == ["check","env_table","impact","route_table",
+                                   "seam_map","seams_for","verify"], names
+                  print("MCP tools OK:", names)
+          asyncio.run(main())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

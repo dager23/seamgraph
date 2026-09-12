@@ -88,3 +88,80 @@ class TestCommands:
         assert main(["--root", str(repo), "routes"]) == 0
         out = capsys.readouterr().out
         assert "/health" in out
+
+
+class TestCheckReporting:
+    """`check` must surface dangling references, not silently drop them.
+
+    Regression: a frontend call to a route with no handler -- the canonical
+    case the tool exists to catch -- was invisible in `check` output whenever
+    the matcher rated it informational.
+    """
+
+    def test_dangling_reference_is_reported(
+        self, repo: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        code, data = _json_run(capsys, ["--root", str(repo), "--json", "check"])
+        keys = {i["key"] for i in data["infos"]} | {w["key"] for w in data["warnings"]}
+        assert "/api/v1/settings" in keys  # deliberate dead call in the fixture
+        assert code in (0, 1)
+
+    def test_infos_exclude_non_defects(
+        self, repo: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _, data = _json_run(capsys, ["--root", str(repo), "--json", "check"])
+        problems = {i["problem"] for i in data["infos"]}
+        # unused definitions and externally-provided env vars are not defects
+        assert not any(p.endswith(("-def-unused", "-def-uncalled")) for p in problems)
+        assert "env-use-unmatched" not in problems
+
+    def test_dead_call_appears_in_human_output(
+        self, repo: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        main(["--root", str(repo), "check"])
+        out = capsys.readouterr().out
+        assert "/api/v1/settings" in out
+
+
+class TestCheckInfoSeverity:
+    """A dead call in a namespace seamgraph cannot vouch for is informational.
+
+    It must still be *shown* (regression: it used to be dropped entirely), and
+    --strict must turn it into a build failure.
+    """
+
+    BACKEND = """
+from fastapi import FastAPI
+
+app = FastAPI()
+
+
+@app.get("/api/users/{uid}")
+async def get_user(uid: int):
+    return {}
+"""
+
+    FRONTEND = """
+export const dead = () => fetch("/api/does-not-exist");
+"""
+
+    @pytest.fixture()
+    def small_repo(self, tmp_path: Path) -> Path:
+        (tmp_path / "backend").mkdir()
+        (tmp_path / "frontend").mkdir()
+        (tmp_path / "backend" / "main.py").write_text(self.BACKEND, encoding="utf-8")
+        (tmp_path / "frontend" / "api.js").write_text(self.FRONTEND, encoding="utf-8")
+        return tmp_path
+
+    def test_info_listed_and_not_failing(
+        self, small_repo: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        code = main(["--root", str(small_repo), "check"])
+        out = capsys.readouterr().out
+        assert code == 0
+        assert "dangling references" in out
+        assert "/api/does-not-exist" in out
+
+    def test_strict_fails_on_the_same_repo(self, small_repo: Path) -> None:
+        assert main(["--root", str(small_repo), "check"]) == 0
+        assert main(["--root", str(small_repo), "check", "--strict"]) == 1

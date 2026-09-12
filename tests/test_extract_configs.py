@@ -192,3 +192,27 @@ class TestDockerfileArgAtEol:
     def test_arg_with_no_default(self) -> None:
         anchors = extract_dockerfile("Dockerfile", "ARG PORT\nARG NODE_VERSION=18\n")
         assert [a.key for a in anchors] == ["PORT", "NODE_VERSION"]
+
+
+class TestDockerfileEnvValues:
+    """`ENV KEY=value` must not extract the *value* as an env var."""
+
+    def test_env_assignment_excludes_value(self) -> None:
+        anchors = extract_dockerfile("Dockerfile", "ENV APP_MODE=prod\n")
+        assert [a.key for a in anchors] == ["APP_MODE"]
+
+    def test_multiple_assignments(self) -> None:
+        anchors = extract_dockerfile("Dockerfile", "ENV A=1 B=2\n")
+        assert [a.key for a in anchors] == ["A", "B"]
+
+    def test_legacy_space_form_takes_one_name(self) -> None:
+        anchors = extract_dockerfile("Dockerfile", "ENV HOME /root\nENV LANG C.UTF-8\n")
+        assert [a.key for a in anchors] == ["HOME", "LANG"]
+
+    def test_quoted_value_containing_equals(self) -> None:
+        anchors = extract_dockerfile("Dockerfile", 'ENV MSG="hello=world"\n')
+        assert [a.key for a in anchors] == ["MSG"]
+
+    def test_arg_with_default(self) -> None:
+        anchors = extract_dockerfile("Dockerfile", "ARG NODE_VERSION=18\n")
+        assert [a.key for a in anchors] == ["NODE_VERSION"]

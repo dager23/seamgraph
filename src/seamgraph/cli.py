@@ -13,10 +13,21 @@ from typing import Any
 
 from . import api
 
+#: Human-readable output truncates long finding lists; --json always has all.
+_MAX_LISTED = 25
+
 
 def _json_out(data: Any) -> None:
     json.dump(data, sys.stdout, indent=2, default=str)
     sys.stdout.write("\n")
+
+
+def _print_findings(findings: list[dict[str, Any]]) -> None:
+    for f in findings[:_MAX_LISTED]:
+        print(f"  {f['problem']:30s}  {f['key']:30s}  {f['path']}:{f['line']}")
+    if len(findings) > _MAX_LISTED:
+        rest = len(findings) - _MAX_LISTED
+        print(f"  ... and {rest} more (use --json for the full list)")
 
 
 def cmd_index(args: argparse.Namespace) -> int:
@@ -86,7 +97,7 @@ def cmd_impact(args: argparse.Namespace) -> int:
     else:
         print(f"Impact analysis: {result['count']} seams cross the change boundary")
         for s in result["impacted_seams"]:
-            print(f"  [{s['kind']}] {s['key']} — {s.get('impact_side', '?')}")
+            print(f"  [{s['kind']}] {s['key']} - {s.get('impact_side', '?')}")
             print(f"    use: {s['use_path']}:{s['use_line']}")
             print(f"    def: {s['def_path']}:{s['def_line']}")
     return 0
@@ -94,7 +105,7 @@ def cmd_impact(args: argparse.Namespace) -> int:
 
 def cmd_check(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve()
-    result = api.check(root)
+    result = api.check(root, strict=args.strict)
     if args.json:
         _json_out(result)
     else:
@@ -104,13 +115,21 @@ def cmd_check(args: argparse.Namespace) -> int:
             f" {stats['anchors']} anchors, {stats['seams']} seams"
         )
         warns = result["warnings"]
+        infos = result["infos"]
         if warns:
             print(f"\nWARN {len(warns)} warnings:")
-            for w in warns:
-                print(f"  {w['problem']:30s}  {w['key']:30s}  {w['path']}:{w['line']}")
-        else:
+            _print_findings(warns)
+        if infos:
+            label = "failing (--strict)" if result["strict"] else "not failing"
+            print(f"\nINFO {len(infos)} dangling references [{label}]:")
+            _print_findings(infos)
+            if not result["strict"]:
+                print("  (seamgraph could not find the definition side of these")
+                print("   namespaces, so it will not fail the build on them;")
+                print("   re-run with --strict to treat them as errors)")
+        if not warns and not infos:
             print("OK No warnings")
-    return 1 if result["warning_count"] > 0 else 0
+    return 1 if result["failing_count"] > 0 else 0
 
 
 def cmd_env(args: argparse.Namespace) -> int:
@@ -150,17 +169,40 @@ def cmd_routes(args: argparse.Namespace) -> int:
             if defs and calls:
                 status = "OK"
             elif defs:
-                status = "WARN uncalled"
+                status = "uncalled"
             else:
-                status = "WARN unmatched"
+                # unmatched calls carry the severity the matcher assigned
+                worst = "info"
+                for c in calls:
+                    if c.get("severity") == "warn":
+                        worst = "warn"
+                status = "WARN no-handler" if worst == "warn" else "info no-handler"
             print(f"  {status} {entry['route']}")
             for d in defs:
                 method = f" [{d.get('method', '')}]" if d.get("method") else ""
                 print(f"      def: {d['path']}:{d['line']}{method}")
             for c in calls:
                 method = f" [{c.get('method', '')}]" if c.get("method") else ""
-                print(f"      call: {c['path']}:{c['line']}{method}")
+                url = f" {c['url']}" if c.get("url") else ""
+                print(f"      call: {c['path']}:{c['line']}{method}{url}")
     return 0
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    result = api.verify(root, ref=args.ref)
+    if args.json:
+        _json_out(result)
+    else:
+        state = "connected" if result["connected"] else "NOT connected"
+        print(f"'{args.ref}': {state} ({len(result['seams'])} seam(s))")
+        for s in result["seams"]:
+            print(f"  [{s['kind']}] {s['key']}")
+            print(f"    use: {s['use_path']}:{s['use_line']}")
+            print(f"    def: {s['def_path']}:{s['def_line']}")
+        for o in result["orphans"]:
+            print(f"  unmatched: {o['problem']} {o['key']} @ {o['path']}:{o['line']}")
+    return 0 if result["connected"] else 1
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
@@ -174,42 +216,72 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    # Global flags are accepted on both sides of the subcommand, so both
+    # `seamgraph --json map` and the more conventional `seamgraph map --json`
+    # work. The sub-level copies use SUPPRESS so that omitting them does not
+    # overwrite a value already given before the subcommand.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
+        "--root",
+        default=argparse.SUPPRESS,
+        help="Repository root (default: current directory)",
+    )
+    common.add_argument(
+        "--json",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="Output JSON",
+    )
+
+    # NB: the top-level flags are defined directly (not via ``parents``) and
+    # carry the real defaults. ``set_defaults`` must not be used here: it
+    # mutates ``.default`` on the shared parent actions, which would make the
+    # subparser copies overwrite a value given before the subcommand.
     p = argparse.ArgumentParser(
         prog="seamgraph",
         description="Cross-artifact seam graph for coding agents.",
     )
     p.add_argument("--root", default=".", help="Repository root (default: current directory)")
-    p.add_argument("--json", action="store_true", help="Output JSON")
+    p.add_argument("--json", action="store_true", default=False, help="Output JSON")
     sub = p.add_subparsers(dest="command", required=True)
 
     # index
-    idx = sub.add_parser("index", help="Index the repository")
+    idx = sub.add_parser("index", help="Index the repository", parents=[common])
     idx.add_argument("--full", action="store_true", help="Force full re-index")
 
     # map
-    mp = sub.add_parser("map", help="Show the seam map")
+    mp = sub.add_parser("map", help="Show the seam map", parents=[common])
     mp.add_argument("--kind", help="Filter by seam kind (env, route, template, ...)")
 
     # for
-    fr = sub.add_parser("for", help="Find seams for a reference")
+    fr = sub.add_parser("for", help="Find seams for a reference", parents=[common])
     fr.add_argument("ref", help="Reference string (env var name, route path, file path, ...)")
     fr.add_argument("--kind", help="Filter by seam kind")
 
     # impact
-    imp = sub.add_parser("impact", help="Impact analysis for changed files")
+    imp = sub.add_parser("impact", help="Impact analysis for changed files", parents=[common])
     imp.add_argument("paths", nargs="+", help="Changed file paths (repo-relative)")
 
+    # verify
+    vf = sub.add_parser("verify", help="Check whether a reference is connected", parents=[common])
+    vf.add_argument("ref", help="Reference to verify")
+
     # check
-    sub.add_parser("check", help="Index + report warnings (CI-friendly)")
+    chk = sub.add_parser("check", help="Index + report warnings (CI-friendly)", parents=[common])
+    chk.add_argument(
+        "--strict",
+        action="store_true",
+        help="Also fail on informational dangling references",
+    )
 
     # env
-    sub.add_parser("env", help="Show env variable table")
+    sub.add_parser("env", help="Show env variable table", parents=[common])
 
     # routes
-    sub.add_parser("routes", help="Show route table")
+    sub.add_parser("routes", help="Show route table", parents=[common])
 
     # serve
-    sub.add_parser("serve", help="Start MCP stdio server")
+    sub.add_parser("serve", help="Start MCP stdio server", parents=[common])
 
     return p
 
@@ -222,6 +294,7 @@ def main(argv: list[str] | None = None) -> int:
         "map": cmd_map,
         "for": cmd_for,
         "impact": cmd_impact,
+        "verify": cmd_verify,
         "check": cmd_check,
         "env": cmd_env,
         "routes": cmd_routes,

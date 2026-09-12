@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.1.0] — 2026-07-13
+## [0.1.0] — 2026-09-12
+
+First public release. Everything below is in that release; the list is grouped
+rather than split across versions because nothing before this was published.
 
 ### Added
 
@@ -51,3 +54,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - **Benchmark suite** (`tests/benchmark_real_repos.py`) against 20 OSS
   full-stack repos and a deterministic token-cost comparison
   (`scripts/measure_token_story.py`).
+
+### Release-readiness pass
+
+A pre-release verification pass exercised every documented command against
+fresh repositories and fixed what it found:
+
+- `--json` and `--root` are accepted on **both sides** of the subcommand.
+  Previously only `seamgraph --json map` worked and `seamgraph map --json`
+  failed with "unrecognized arguments", contradicting the README.
+- `seamgraph routes` groups calls under the definition they actually matched.
+  It previously grouped by literal anchor key, so every call to a
+  parameterized route (`/api/users/7` against `/api/users/{id}`) was labelled
+  unmatched despite having a seam, and contradicted `check` on the same repo.
+- `seamgraph check` now reports **dangling references** that are rated
+  informational instead of dropping them silently. A frontend call to a route
+  with no handler — the case the tool exists to catch — was invisible whenever
+  seamgraph could not vouch for the namespace. `--strict` promotes these to
+  build failures.
+- **The MCP server worked only against the `mcp` SDK version pinned in the
+  development venv.** It was written against the low-level decorator API
+  (`Server.list_tools()`), which the 2.x SDK removed, so a fresh
+  `pip install "seamgraph[mcp]"` crashed on startup with `AttributeError`
+  while the repo's own tests passed. It now uses the high-level server class
+  and resolves it under either name - `FastMCP` on `mcp` 1.x, `MCPServer` on
+  2.x - and is exercised against both.
+- **The source distribution contained a 15 MB virtualenv.** Virtualenvs write
+  their own `.gitignore`, so `git status` showed a clean tree while the build
+  swept the directory in. The sdist is now an explicit allowlist.
+- Dockerfile `ENV KEY=value` no longer extracts `value` as a second variable.
+- `seamgraph verify <ref>` added as a CLI command (it already existed in the
+  API and over MCP), exiting non-zero when a reference is not connected.
+- The first `index` on a repo no longer indexes twice and no longer reports
+  "(0 changed)".
+- Long finding lists are truncated in human output with a pointer to `--json`.
+- `impact` output is ASCII-only, so it does not mojibake on legacy consoles.
+- Release workflow moved to its own file: a tag push does not match a
+  `branches:` filter, so the previous tag-gated release job could never fire.
+- CI now builds the wheel *and* the sdist on every push and installs each into
+  a clean virtualenv, running the CLI and the MCP server from the installed
+  package.

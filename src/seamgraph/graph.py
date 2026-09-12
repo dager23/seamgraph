@@ -423,32 +423,74 @@ class SeamGraph:
         return [{"name": k, **v} for k, v in sorted(table.items())]
 
     def query_route_table(self) -> list[dict[str, Any]]:
-        """Build a route table: path → [{side, method, file, line}]."""
+        """Build a route table keyed by definition, resolved through seams.
+
+        A call is grouped under the definition it actually matched, not under
+        its own literal key -- otherwise every parameterized call
+        (``/api/users/7`` against ``/api/users/{id}``) would look unmatched.
+        Calls that matched nothing are returned as their own rows with no
+        definitions, carrying the severity the matcher assigned them.
+        """
         conn = self._connect()
-        sql = (
-            "SELECT kind, key, raw, path, line, detail, extra"
-            " FROM anchors WHERE kind IN (?, ?)"
-            " ORDER BY key, path"
-        )
-        rows = conn.execute(
-            sql,
-            (AnchorKind.ROUTE_DEF.value, AnchorKind.ROUTE_CALL.value),
+        def_rows = conn.execute(
+            "SELECT id, key, path, line, detail, extra FROM anchors"
+            " WHERE kind = ? ORDER BY key, path",
+            (AnchorKind.ROUTE_DEF.value,),
+        ).fetchall()
+        seam_rows = conn.execute(
+            "SELECT s.def_anchor_id AS def_id,"
+            "       u.key AS use_key, u.raw AS use_raw, u.path AS use_path,"
+            "       u.line AS use_line, u.detail AS use_detail, u.extra AS use_extra"
+            " FROM seams s JOIN anchors u ON s.use_anchor_id = u.id"
+            " WHERE s.kind = ? ORDER BY u.path, u.line",
+            ("route",),
+        ).fetchall()
+        orphan_rows = conn.execute(
+            "SELECT o.problem, o.severity, a.key, a.raw, a.path, a.line, a.detail, a.extra"
+            " FROM orphans o JOIN anchors a ON o.anchor_id = a.id"
+            " WHERE a.kind = ? ORDER BY a.key, a.path",
+            (AnchorKind.ROUTE_CALL.value,),
         ).fetchall()
         conn.close()
 
-        from collections import defaultdict
+        def _entry(row: sqlite3.Row, extra_json: str) -> dict[str, Any]:
+            extra = json.loads(extra_json)
+            e: dict[str, Any] = {
+                "path": row["path"],
+                "line": row["line"],
+                "detail": row["detail"],
+            }
+            if extra.get("method"):
+                e["method"] = extra["method"]
+            if extra.get("framework"):
+                e["framework"] = extra["framework"]
+            return e
 
-        table: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(
-            lambda: {"definitions": [], "calls": []}
-        )
-        for r in rows:
-            extra = json.loads(r["extra"])
-            entry: dict[str, Any] = {"path": r["path"], "line": r["line"], "detail": r["detail"]}
+        calls_by_def: dict[int, list[dict[str, Any]]] = {}
+        for r in seam_rows:
+            entry = {
+                "path": r["use_path"],
+                "line": r["use_line"],
+                "detail": r["use_detail"],
+                "url": r["use_raw"],
+            }
+            extra = json.loads(r["use_extra"])
             if extra.get("method"):
                 entry["method"] = extra["method"]
-            if extra.get("framework"):
-                entry["framework"] = extra["framework"]
-            side = "definitions" if r["kind"] == AnchorKind.ROUTE_DEF.value else "calls"
-            table[r["key"]][side].append(entry)
+            calls_by_def.setdefault(r["def_id"], []).append(entry)
+
+        table: dict[str, dict[str, Any]] = {}
+        for d in def_rows:
+            row = table.setdefault(d["key"], {"definitions": [], "calls": []})
+            row["definitions"].append(_entry(d, d["extra"]))
+            row["calls"].extend(calls_by_def.get(d["id"], []))
+
+        for o in orphan_rows:
+            row = table.setdefault(o["key"], {"definitions": [], "calls": []})
+            entry = _entry(o, o["extra"])
+            entry["url"] = o["raw"]
+            entry["problem"] = o["problem"]
+            entry["severity"] = o["severity"]
+            row["calls"].append(entry)
 
         return [{"route": k, **v} for k, v in sorted(table.items())]

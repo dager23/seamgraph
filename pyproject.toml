@@ -9,7 +9,7 @@ description = "A deterministic graph of your repo's seams: the string-typed refe
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Yash Shah" }]
+authors = [{ name = "dager23", email = "72321363+dager23@users.noreply.github.com" }]
 keywords = [
     "mcp",
     "coding-agents",
@@ -41,8 +41,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yshah-afk/seamgraph"
-Changelog = "https://github.com/yshah-afk/seamgraph/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/dager23/seamgraph"
+Repository = "https://github.com/dager23/seamgraph"
+Issues = "https://github.com/dager23/seamgraph/issues"
+Changelog = "https://github.com/dager23/seamgraph/blob/main/CHANGELOG.md"
 
 [project.scripts]
 seamgraph = "seamgraph.cli:main"
@@ -59,6 +61,27 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/seamgraph"]
+
+# The sdist ships an explicit allowlist. Hatchling's default selection walks the
+# working tree, and a stray virtualenv is invisible to `git status` (virtualenvs
+# write their own .gitignore) -- one was nearly published this way. Naming the
+# contents outright makes that class of accident impossible.
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "src",
+    "tests",
+    "scripts",
+    "README.md",
+    "CHANGELOG.md",
+    "BENCHMARKS.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+exclude = [
+    "**/__pycache__",
+    "**/.seamgraph",
+    "**/*.pyc",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

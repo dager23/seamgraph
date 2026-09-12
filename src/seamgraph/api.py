@@ -13,18 +13,23 @@ from .config import load_config
 from .graph import SeamGraph
 
 
-def _graph(root: Path) -> SeamGraph:
+def _graph(root: Path, auto_index: bool = True) -> SeamGraph:
+    """Open the graph for ``root``.
+
+    Query entry points pass ``auto_index=True`` so a first query on a repo that
+    was never indexed returns real data instead of an empty graph. ``index()``
+    passes False -- it is about to index anyway, and auto-indexing first would
+    do the work twice and then report "0 changed" on a first run.
+    """
     g = SeamGraph(root, load_config(root))
-    if not g.db_path.exists():
-        # first query on a repo that was never indexed: index it now rather
-        # than serving an empty graph
+    if auto_index and not g.db_path.exists():
         g.index()
     return g
 
 
 def index(root: Path, full: bool = False) -> dict[str, Any]:
     """Index the repository and return stats."""
-    return _graph(root).index(full=full)
+    return _graph(root, auto_index=False).index(full=full)
 
 
 def seam_map(root: Path, kind: str | None = None) -> dict[str, Any]:
@@ -117,19 +122,42 @@ def orphans(root: Path, severity: str | None = None) -> dict[str, Any]:
     }
 
 
-def check(root: Path) -> dict[str, Any]:
-    """Run a check: index + report warnings.
+#: Dangling-reference problems worth showing even at informational severity.
+#: A reference with no resolvable target is actionable; an unused *definition*
+#: is not a defect, and env/setting reads legitimately come from outside the
+#: repo, so neither class appears here.
+DANGLING_PROBLEMS = (
+    "route-call-unmatched",
+    "template-ref-missing",
+    "task-call-unmatched",
+    "urlname-use-unmatched",
+    "script-use-unmatched",
+)
 
-    Returns exit-code-friendly result: ``warnings`` count > 0 means issues.
+
+def check(root: Path, strict: bool = False) -> dict[str, Any]:
+    """Run a check: index, then report warnings and dangling references.
+
+    ``warnings`` are findings seamgraph is confident about (the repo visibly
+    serves the namespace the reference points into). ``infos`` are dangling
+    references it cannot be confident about -- usually because the definition
+    side of that namespace was never extracted -- so they are reported but do
+    not fail the run unless ``strict`` is set.
     """
-    g = _graph(root)
+    g = _graph(root, auto_index=False)
     stats = g.index()
     warns = g.query_orphans(severity="warn")
+    infos = [o for o in g.query_orphans(severity="info") if o["problem"] in DANGLING_PROBLEMS]
+    failing = len(warns) + (len(infos) if strict else 0)
     return {
         "stats": stats,
         "warnings": warns,
         "warning_count": len(warns),
-        "ok": len(warns) == 0,
+        "infos": infos,
+        "info_count": len(infos),
+        "strict": strict,
+        "failing_count": failing,
+        "ok": failing == 0,
     }
 
 

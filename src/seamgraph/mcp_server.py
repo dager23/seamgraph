@@ -1,174 +1,127 @@
 """MCP stdio server for seamgraph (optional extra ``seamgraph[mcp]``).
 
-Exposes tools:
-- ``seam_map``: Get the full seam map (overview for an agent starting a task)
-- ``seams_for``: Find seams related to a specific reference
-- ``impact``: Find seams crossing a change boundary
-- ``verify``: Check if a reference is connected on both sides
-- ``env_table``: Get the env-variable cross-reference table
-- ``route_table``: Get the route cross-reference table
-- ``check``: Index + report warnings (CI integration)
+Exposes seven tools:
+
+- ``seam_map``: the full seam map (an agent's starting point)
+- ``seams_for``: seams related to one reference
+- ``impact``: seams crossing a change boundary
+- ``verify``: whether a reference is connected on both sides
+- ``env_table``: env-variable cross-reference
+- ``route_table``: route cross-reference
+- ``check``: re-index and report findings
+
+The high-level server class was renamed between SDK generations -- ``FastMCP``
+in ``mcp`` 1.x, ``MCPServer`` in 2.x -- so both names are tried here. The tool
+surface is identical across the two, so nothing else has to branch.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
-try:
-    from mcp.server import Server
-    from mcp.server.stdio import stdio_server
-    from mcp.types import TextContent, Tool
+#: The high-level server class, under whichever name this SDK generation uses.
+#: Bound by assignment rather than ``import ... as`` so there is exactly one
+#: definition of the name for type checkers to reason about.
+_Server: Any = None
+try:  # mcp >= 2.0
+    from mcp.server import mcpserver as _mcp2  # type: ignore[attr-defined]
 
-    HAS_MCP = True
-except ImportError:
-    HAS_MCP = False
+    _Server = _mcp2.MCPServer
+except ImportError:  # pragma: no cover - depends on the installed SDK
+    try:  # mcp 1.2 - 1.x
+        from mcp.server import fastmcp as _mcp1
 
-from . import api
+        _Server = _mcp1.FastMCP
+    except ImportError:
+        _Server = None
 
+HAS_MCP = _Server is not None
 
-def _result(data: Any) -> list[Any]:
-    """Wrap API result as MCP TextContent."""
-    return [TextContent(type="text", text=json.dumps(data, indent=2, default=str))]
+from . import api  # noqa: E402
 
 
 def create_server(root: Path) -> Any:
+    """Build the MCP server, with every tool bound to ``root``."""
     if not HAS_MCP:
-        raise ImportError("MCP support requires: pip install seamgraph[mcp]")
+        raise ImportError("MCP support requires: pip install 'seamgraph[mcp]'")
 
-    server = Server("seamgraph")
+    server = _Server(
+        name="seamgraph",
+        instructions=(
+            "seamgraph indexes the string-typed seams of this repository: the "
+            "references that connect code to configs, templates, frontend HTTP "
+            "calls, CI scripts and .env files. Use seams_for instead of grepping "
+            "when you need to know what a route, env var or template name is "
+            "connected to, and impact before finishing a change."
+        ),
+    )
 
-    @server.list_tools()  # type: ignore[untyped-decorator, no-untyped-call]
-    async def list_tools() -> list[Tool]:
-        return [
-            Tool(
-                name="seam_map",
-                description=(
-                    "Get the seam map: all cross-artifact seams in this repo "
-                    "(env chains, route links, template refs, url-names, tasks, scripts). "
-                    "Use this first to understand what's connected."
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "kind": {
-                            "type": "string",
-                            "description": (
-                                "Filter by seam kind: env, route,"
-                                " template, urlname, task, script, setting"
-                            ),
-                        },
-                    },
-                },
-            ),
-            Tool(
-                name="seams_for",
-                description=(
-                    "Find seams related to a specific reference (env var name, route path, "
-                    "template name, file path). Returns the exact connections with evidence — "
-                    "use this instead of grep when you need to find what's connected."
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "ref": {
-                            "type": "string",
-                            "description": (
-                                "Reference to search for"
-                                " (e.g. 'DATABASE_URL',"
-                                " '/api/users', 'base.html')"
-                            ),
-                        },
-                        "kind": {
-                            "type": "string",
-                            "description": "Filter by seam kind",
-                        },
-                    },
-                    "required": ["ref"],
-                },
-            ),
-            Tool(
-                name="impact",
-                description=(
-                    "Given changed files, find seams that cross the change boundary. "
-                    "These are the connections where one side changed and the other didn't — "
-                    "the seams you need to verify won't break."
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "paths": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of changed file paths (repo-relative)",
-                        },
-                    },
-                    "required": ["paths"],
-                },
-            ),
-            Tool(
-                name="verify",
-                description=(
-                    "Verify a single reference: is it connected on both sides? "
-                    "Use after making a change to confirm nothing is broken."
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "ref": {
-                            "type": "string",
-                            "description": "Reference to verify",
-                        },
-                    },
-                    "required": ["ref"],
-                },
-            ),
-            Tool(
-                name="env_table",
-                description=(
-                    "Get a comprehensive env-variable cross-reference table: "
-                    "where each variable is defined and read, across .env, compose, "
-                    "Dockerfile, k8s, CI, and code."
-                ),
-                inputSchema={"type": "object", "properties": {}},
-            ),
-            Tool(
-                name="route_table",
-                description=(
-                    "Get a route cross-reference table: backend definitions and "
-                    "frontend/test client calls for each route path."
-                ),
-                inputSchema={"type": "object", "properties": {}},
-            ),
-            Tool(
-                name="check",
-                description=(
-                    "Re-index and report warnings: unmatched route calls, undefined "
-                    "env vars, missing templates. CI-friendly."
-                ),
-                inputSchema={"type": "object", "properties": {}},
-            ),
-        ]
+    @server.tool()  # type: ignore[untyped-decorator]
+    def seam_map(kind: str | None = None) -> dict[str, Any]:
+        """Get every cross-artifact seam in this repo, with a summary by kind and grade.
 
-    @server.call_tool()  # type: ignore[untyped-decorator]
-    async def call_tool(name: str, arguments: dict[str, Any]) -> list[Any]:
-        if name == "seam_map":
-            return _result(api.seam_map(root, kind=arguments.get("kind")))
-        elif name == "seams_for":
-            return _result(api.seams_for(root, ref=arguments["ref"], kind=arguments.get("kind")))
-        elif name == "impact":
-            return _result(api.impact(root, paths=arguments["paths"]))
-        elif name == "verify":
-            return _result(api.verify(root, ref=arguments["ref"]))
-        elif name == "env_table":
-            return _result(api.env_table(root))
-        elif name == "route_table":
-            return _result(api.route_table(root))
-        elif name == "check":
-            return _result(api.check(root))
-        else:
-            return [TextContent(type="text", text=f"Unknown tool: {name}")]
+        Start here to understand what is connected. Optionally filter by kind:
+        env, route, template, urlname, task, script, setting.
+        """
+        return api.seam_map(root, kind=kind)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def seams_for(ref: str, kind: str | None = None) -> dict[str, Any]:
+        """Find what a reference is connected to, with file:line evidence on both sides.
+
+        Use this instead of grep. ``ref`` can be an env var name
+        (DATABASE_URL), a route path (/api/users), a template name
+        (checkout.html) or a file path.
+        """
+        return api.seams_for(root, ref=ref, kind=kind)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def impact(paths: list[str]) -> dict[str, Any]:
+        """Given changed files, list the seams that cross the change boundary.
+
+        These are the connections where one side moved and the other did not,
+        so they are what to re-check before calling a change done.
+        """
+        return api.impact(root, paths=paths)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def verify(ref: str) -> dict[str, Any]:
+        """Check whether one reference resolves on both sides.
+
+        Use after editing a route, env var or template name to confirm the
+        other side still matches.
+        """
+        return api.verify(root, ref=ref)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def env_table() -> dict[str, Any]:
+        """Cross-reference every environment variable: where each is defined and read.
+
+        Covers .env files, docker-compose, Dockerfile, Kubernetes manifests,
+        CI workflow env blocks, and reads in Python and JS/TS.
+        """
+        return api.env_table(root)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def route_table() -> dict[str, Any]:
+        """Cross-reference every HTTP route: handlers and the calls that reach them.
+
+        Calls are grouped under the handler they actually matched; calls with
+        no handler are listed on their own with the severity seamgraph
+        assigned them.
+        """
+        return api.route_table(root)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def check(strict: bool = False) -> dict[str, Any]:
+        """Re-index and report findings: warnings plus informational dangling references.
+
+        Warnings are references seamgraph is confident are broken.
+        Informational findings are references whose definition side it never
+        extracted. ``strict`` counts the informational ones as failures too.
+        """
+        return api.check(root, strict=strict)
 
     return server
 
@@ -176,16 +129,8 @@ def create_server(root: Path) -> Any:
 def run_server(root: Path) -> None:
     """Run the MCP server on stdio.
 
-    The repository is indexed (incrementally) at startup so every tool answers
-    from a fresh graph; the ``check`` tool re-indexes on demand mid-session.
+    The repository is indexed (incrementally) at startup so the first tool call
+    answers from a real graph instead of an empty one.
     """
-    import asyncio
-
     api.index(root)
-    server = create_server(root)
-
-    async def _run() -> None:
-        async with stdio_server() as (read, write):
-            await server.run(read, write, server.create_initialization_options())
-
-    asyncio.run(_run())
+    create_server(root).run()

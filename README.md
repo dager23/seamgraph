@@ -59,24 +59,32 @@ to a filtered walk and co-change grading is skipped (all seams stay `anchored`).
 claude mcp add seamgraph -- python -m seamgraph.cli --root /path/to/repo serve
 ```
 
+Works with both generations of the Python MCP SDK (`mcp` 1.x and 2.x); the
+server indexes the repo on startup so the first tool call has a real graph.
+
 ## Quick start
 
 ```bash
-# Index your repo
+# Index your repo (--full forces a re-index of every file)
 seamgraph index
 
-# Show the full seam map
+# Show the full seam map (--kind env|route|template|urlname|task|script|setting)
 seamgraph map
+seamgraph map --kind route
 
 # Find seams for a specific reference
 seamgraph for DATABASE_URL
 seamgraph for "/api/users"
 
+# Is one reference connected on both sides? (exit code 1 if not)
+seamgraph verify DATABASE_URL
+
 # Impact analysis: what seams cross a change boundary?
 seamgraph impact src/routes.py frontend/api.js
 
-# CI check: index + report warnings (exit code 1 if warnings)
+# CI check: index + report findings (exit code 1 if warnings)
 seamgraph check
+seamgraph check --strict   # also fail on informational dangling references
 
 # Env variable cross-reference table
 seamgraph env
@@ -88,8 +96,13 @@ seamgraph routes
 seamgraph serve
 ```
 
-All commands support `--json` for machine-readable output and `--root <path>`
-to specify the repository root.
+`--json` (machine-readable output) and `--root <path>` (repository root) work
+on every command, and on either side of the subcommand — `seamgraph --json map`
+and `seamgraph map --json` are equivalent.
+
+> **Git Bash on Windows:** MSYS rewrites arguments that look like absolute
+> paths, so `seamgraph for "/api/users"` arrives as `C:/Git/api/users`. Use
+> PowerShell/cmd, or set `MSYS_NO_PATHCONV=1` for that command.
 
 ## How it works
 
@@ -113,6 +126,21 @@ Every seam edge passes through two quality gates:
 |---|---|
 | `anchored` | Both endpoints extracted by framework-aware patterns |
 | `corroborated` | Anchored + confirmed by git co-change history |
+
+### Finding severities
+
+`seamgraph check` separates what it is confident about from what it is not:
+
+| Severity | Meaning | Fails the build? |
+|---|---|---|
+| **warning** | A reference resolves to nothing, *and* the repo visibly serves that namespace — so the target is genuinely missing | yes |
+| **informational** | A reference resolves to nothing, but seamgraph never extracted the definition side of that namespace, so it cannot tell a dead reference from a framework it does not parse | only with `--strict` |
+
+This is why a dead `fetch("/api/does-not-exist")` is a warning in a repo whose
+routes seamgraph fully understands, and informational in one where it found no
+routes in that namespace at all. Both are always *reported* — the severity only
+decides whether CI fails. Unused definitions are never findings: an env var
+defined and not read, or a handler nobody calls, is not a defect.
 
 Separately from graded seams, **discoveries** are *cross-artifact* file pairs
 (e.g. a `.py` and a `.ts` file) that co-change suspiciously often but have no

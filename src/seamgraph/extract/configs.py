@@ -21,7 +21,7 @@ else:
 
 _ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=")
 _DOCKER_ENV = re.compile(r"^\s*(ENV|ARG)\s+(.+)$", re.IGNORECASE)
-_DOCKER_PAIR = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)(?:=|\s|$)")
+_DOCKER_KV = re.compile(r"(?:^|\s)([A-Za-z_][A-Za-z0-9_]*)=")
 _MAKE_TARGET = re.compile(r"^([A-Za-z0-9_][A-Za-z0-9_.-]*)\s*:(?!=)")
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -65,8 +65,15 @@ def extract_dockerfile(path: str, text: str) -> list[Anchor]:
             continue
         kind = m.group(1).upper()
         body = m.group(2)
-        for pair in _DOCKER_PAIR.finditer(body):
-            name = pair.group(1)
+        if "=" in body:
+            # `ENV A=1 B=2` / `ARG NAME=default`: names are the tokens that
+            # immediately precede an '='. The values must not be collected.
+            names = _DOCKER_KV.findall(body)
+        else:
+            # legacy `ENV KEY value` and bare `ARG KEY` define one name
+            tokens = body.split()
+            names = tokens[:1]
+        for name in names:
             if _ENV_NAME.match(name):
                 anchors.append(
                     Anchor(
@@ -79,8 +86,6 @@ def extract_dockerfile(path: str, text: str) -> list[Anchor]:
                         {"source": "dockerfile"},
                     )
                 )
-            if kind == "ENV" and "=" not in body:
-                break  # legacy `ENV KEY value` defines only the first token
     return anchors
 
 

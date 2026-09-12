@@ -12,3 +12,7 @@ build/
 htmlcov/
 .seamgraph/
 bench-repos/
+
+# stray virtualenvs (they hide from git by writing their own .gitignore)
+sg-smoke/
+*-smoke/

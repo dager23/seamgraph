@@ -66,3 +66,27 @@ def test_mcp_stdio_roundtrip(tmp_path: Path) -> None:
     # impact of changing the backend: route seams to the frontend cross the boundary
     impacted_kinds = {s["kind"] for s in impact_payload["impacted_seams"]}
     assert "route" in impacted_kinds
+
+
+class TestSdkCompatibility:
+    """The high-level server class was renamed between mcp 1.x and 2.x.
+
+    Regression: the server was written against the low-level decorator API
+    (`Server.list_tools()`), which mcp 2.x removed. A fresh
+    `pip install "seamgraph[mcp]"` therefore crashed on startup with
+    AttributeError while the repo's pinned 1.x venv kept passing.
+    """
+
+    def test_a_server_class_was_resolved(self) -> None:
+        from seamgraph import mcp_server
+
+        assert mcp_server.HAS_MCP, "no MCP server class resolved"
+        assert mcp_server._Server.__name__ in ("FastMCP", "MCPServer")
+
+    def test_server_builds_with_all_seven_tools(self, tmp_path: Path) -> None:
+        from seamgraph import mcp_server
+
+        server = mcp_server.create_server(tmp_path)
+        # both generations expose the same registration surface
+        assert hasattr(server, "tool")
+        assert hasattr(server, "run")

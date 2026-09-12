@@ -197,3 +197,35 @@ class TestIncremental:
         g.index()
         task_calls = g.query_anchors(kind=AnchorKind.TASK_CALL.value)
         assert task_calls == []
+
+
+class TestRouteTableResolvesThroughSeams:
+    """`seamgraph routes` must group calls under the definition they matched.
+
+    Regression: the table grouped by literal anchor key, so every call to a
+    parameterized route (``/api/users/7`` against ``/api/users/{id}``) was
+    reported as unmatched even though a seam existed for it.
+    """
+
+    def test_parameterized_call_is_not_reported_unmatched(self, fastapi_graph: SeamGraph) -> None:
+        table = fastapi_graph.query_route_table()
+        by_route = {r["route"]: r for r in table}
+        entry = by_route["/api/v1/users/*"]
+        assert entry["definitions"], "definition row missing"
+        call_paths = {c["path"] for c in entry["calls"]}
+        assert "frontend/src/api.js" in call_paths
+
+    def test_unmatched_call_carries_severity(self, fastapi_graph: SeamGraph) -> None:
+        table = fastapi_graph.query_route_table()
+        by_route = {r["route"]: r for r in table}
+        entry = by_route["/api/v1/settings"]  # deliberate dead call in the fixture
+        assert entry["definitions"] == []
+        assert entry["calls"][0]["problem"] == "route-call-unmatched"
+        assert entry["calls"][0]["severity"] in ("warn", "info")
+
+    def test_every_route_seam_appears_in_the_table(self, fastapi_graph: SeamGraph) -> None:
+        seams = fastapi_graph.query_seams(kind="route")
+        table = fastapi_graph.query_route_table()
+        listed = {(r["route"], c["path"], c["line"]) for r in table for c in r["calls"]}
+        for s in seams:
+            assert (s["def_key"], s["use_path"], s["use_line"]) in listed
