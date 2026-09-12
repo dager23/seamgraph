@@ -229,3 +229,51 @@ class TestRouteTableResolvesThroughSeams:
         listed = {(r["route"], c["path"], c["line"]) for r in table for c in r["calls"]}
         for s in seams:
             assert (s["def_key"], s["use_path"], s["use_line"]) in listed
+
+
+class TestWithoutGit:
+    """The README promises git is optional. Verify that literally.
+
+    Without a repository, file discovery falls back to a filtered walk and
+    co-change grading is skipped, so every seam stays `anchored` and no
+    statistical discoveries are produced.
+    """
+
+    BACKEND = """
+import os
+from fastapi import FastAPI
+
+app = FastAPI()
+API_KEY = os.environ["API_KEY"]
+
+
+@app.get("/api/ping")
+async def ping():
+    return {}
+"""
+
+    @pytest.fixture()
+    def plain_dir(self, tmp_path: Path) -> Path:
+        (tmp_path / "backend").mkdir()
+        (tmp_path / "web").mkdir()
+        (tmp_path / "backend" / "main.py").write_text(self.BACKEND, encoding="utf-8")
+        (tmp_path / "web" / "api.js").write_text(
+            'export const p = () => fetch("/api/ping");\n', encoding="utf-8"
+        )
+        (tmp_path / ".env").write_text("API_KEY=abc\n", encoding="utf-8")
+        assert not (tmp_path / ".git").exists()
+        return tmp_path
+
+    def test_indexes_and_finds_seams(self, plain_dir: Path) -> None:
+        g = SeamGraph(plain_dir)
+        stats = g.index()
+        assert stats["files_scanned"] == 3
+        kinds = {s["kind"] for s in g.query_seams()}
+        assert kinds == {"env", "route"}
+
+    def test_all_seams_stay_anchored(self, plain_dir: Path) -> None:
+        g = SeamGraph(plain_dir)
+        g.index()
+        grades = {s["grade"] for s in g.query_seams()}
+        assert grades == {"anchored"}
+        assert g.query_discoveries() == []

@@ -27,21 +27,35 @@ indexes these seams once, deterministically, and serves the answer in one call.
 ## Measured results (20 real OSS repos)
 
 Run against 20 popular full-stack repositories — saleor, redash, label-studio,
-cal.com, dify, lobe-chat, twenty, and more ([BENCHMARKS.md](BENCHMARKS.md) has
-the full table and methodology):
+cal.com, dify, lobe-chat, twenty, and more. [BENCHMARKS.md](BENCHMARKS.md) has
+the per-repo table and methodology; every number there is produced by
+`python tests/benchmark_real_repos.py`, not written by hand.
 
-- **118,520 files → 25,824 anchors → 16,207 seams** across 7 seam kinds;
-  242 seams additionally corroborated by git co-change history.
-- **Token cost of "where is this referenced?"**: one `seams_for` response vs
-  the grep-then-read-each-file workflow, measured byte-for-byte
-  (`scripts/measure_token_story.py`): median **14.8x** less context on redash,
-  **62.5x** on saleor, **12.8x** on papermark.
-- **Noise stays low**: 84 warning-level findings across all 20 repos
-  (11 repos report zero). Sampled warnings hand-verified: they are real —
-  e.g. papermark's frontend calls `/api/teams/{id}/billing/manage` and a
-  documents `feedback` endpoint that have **no handler in the repo**, and
-  dify test calls to routes that deliberately don't exist. Everything
-  ambiguous is downgraded to informational rather than warned.
+- **118,520 files → 25,690 anchors → 16,048 seams** across 7 seam kinds;
+  242 of those seams are additionally corroborated by git co-change history.
+- **Token cost of "where is this referenced?"** — one `seams_for` response
+  against the grep-then-read-every-match workflow, counted byte for byte by
+  `scripts/measure_token_story.py`: a median of **14.8x** less context on
+  redash, **98.3x** on saleor, **12.8x** on papermark.
+- **84 warnings across all 20 repos**, and 11 of the 20 report none. Sampled
+  warnings were checked by hand against the source: they are real, such as
+  papermark's frontend calling `/api/teams/{id}/billing/manage`, which no
+  handler in that repo serves.
+- A further **1,632 findings are informational** rather than warnings, and
+  two repos account for more than half of them. Those are codebases whose
+  route definitions seamgraph does not parse — infisical registers routes
+  through Fastify, and much of open-webui's API is reached from Svelte — so
+  it reports the dangling references but will not fail a build over them.
+  That split is the point: seamgraph separates "this is broken" from "I
+  cannot see the other side of this".
+
+**Correctness, not just volume.** `tests/correctness_harness.py` seeds
+scenarios into each of those repositories from facts taken out of the
+repository itself — reading an environment variable it really defines, calling
+a route it really defines, and separately reading a variable and calling a
+route that provably do not exist anywhere in it. seamgraph must link the first
+two and refuse to invent the second two. All 20 repos pass, and every CLI
+command runs against each of them without crashing or emitting malformed JSON.
 
 ## Installation
 

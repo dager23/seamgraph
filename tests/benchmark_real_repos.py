@@ -24,6 +24,7 @@ from pathlib import Path
 # Add src to path for direct execution
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from seamgraph.api import DANGLING_PROBLEMS
 from seamgraph.cochange import corroborate_seams, discover_statistical, mine_cochange
 from seamgraph.config import Config
 from seamgraph.extract.configs import extract_config_file
@@ -84,6 +85,8 @@ class BenchmarkResult:
     total_seams: int
     total_orphans: int
     total_discoveries: int = 0
+    warnings: int = 0
+    infos_dangling: int = 0
     error: str | None = None
 
 
@@ -209,8 +212,14 @@ def benchmark_repo(root: Path, name: str, desc: str) -> BenchmarkResult:
             seams_by_grade[s.grade] = seams_by_grade.get(s.grade, 0) + 1
 
         orphans_by_problem: dict[str, int] = {}
+        warn_count = 0
+        info_dangling = 0
         for o in orphans:
             orphans_by_problem[o.problem] = orphans_by_problem.get(o.problem, 0) + 1
+            if o.severity == "warn":
+                warn_count += 1
+            elif o.problem in DANGLING_PROBLEMS:
+                info_dangling += 1
 
         return BenchmarkResult(
             name=name,
@@ -225,6 +234,8 @@ def benchmark_repo(root: Path, name: str, desc: str) -> BenchmarkResult:
             total_seams=len(seams),
             total_orphans=len(orphans),
             total_discoveries=len(discoveries),
+            warnings=warn_count,
+            infos_dangling=info_dangling,
         )
     except Exception as e:
         elapsed = time.monotonic() - t0
@@ -315,39 +326,52 @@ def write_report(results: list[BenchmarkResult], out_path: Path) -> None:
         "  cross-artifact file pairs with high co-change but no static seam.",
         "- Numbers are produced by `python tests/benchmark_real_repos.py --keep` and",
         "  are fully deterministic for a given set of clone heads.",
-        "- Warning-severity orphans (not shown per-repo below) averaged ~12 per repo",
-        "  across the corpus; every sampled warning was hand-verified as either a",
-        "  genuine dead reference (e.g. papermark's frontend calling",
-        "  `/api/teams/{id}/billing/manage` with no such handler) or an extraction",
-        "  gap that was then fixed and re-run before these numbers were published.",
+        "- **Warn** counts findings seamgraph is confident about: a reference that",
+        "  resolves to nothing in a namespace the repo visibly serves. **Info**",
+        "  counts dangling references whose definition side was never extracted, so",
+        "  they are reported but do not fail a build without `--strict`.",
+        "- Sampled warnings were hand-verified as either genuine dead references",
+        "  (papermark's frontend calls `/api/teams/{id}/billing/manage`, which has",
+        "  no handler in the repo) or extraction gaps that were fixed and re-run",
+        "  before these numbers were published.",
         "",
         "## Summary Table",
         "",
-        "| Repo | Description | Files | Anchors | Seams | Corroborated | Discoveries | Time (s) |",
-        "|------|-------------|------:|--------:|------:|-------------:|------------:|---------:|",
+        "| Repo | Description | Files | Anchors | Seams | Corrob. | Warn | Info | Time (s) |",
+        "|------|-------------|------:|--------:|------:|--------:|-----:|-----:|---------:|",
     ]
-    totals = {"files": 0, "anchors": 0, "seams": 0, "corroborated": 0, "discoveries": 0}
+    totals = {
+        "files": 0,
+        "anchors": 0,
+        "seams": 0,
+        "corroborated": 0,
+        "discoveries": 0,
+        "warnings": 0,
+        "infos": 0,
+    }
     for r in results:
         if r.error:
-            lines.append(f"| {r.name} | {r.desc} | — | — | — | — | — | X {r.error} |")
+            lines.append(f"| {r.name} | {r.desc} | — | — | — | — | — | — | X {r.error} |")
         else:
             corroborated = r.seams_by_grade.get("corroborated", 0)
             lines.append(
                 f"| {r.name} | {r.desc} | {r.files_scanned:,} | {r.total_anchors:,} | "
-                f"{r.total_seams:,} | {corroborated:,} | {r.total_discoveries:,} | "
-                f"{r.time_seconds} |"
+                f"{r.total_seams:,} | {corroborated:,} | {r.warnings:,} | "
+                f"{r.infos_dangling:,} | {r.time_seconds} |"
             )
             totals["files"] += r.files_scanned
             totals["anchors"] += r.total_anchors
             totals["seams"] += r.total_seams
             totals["corroborated"] += corroborated
             totals["discoveries"] += r.total_discoveries
+            totals["warnings"] += r.warnings
+            totals["infos"] += r.infos_dangling
 
     lines.extend(
         [
             f"| **Total** | | **{totals['files']:,}** | **{totals['anchors']:,}** | "
             f"**{totals['seams']:,}** | **{totals['corroborated']:,}** | "
-            f"**{totals['discoveries']:,}** | |",
+            f"**{totals['warnings']:,}** | **{totals['infos']:,}** | |",
             "",
             "## Seams by Kind (aggregated)",
             "",
@@ -434,6 +458,8 @@ def main() -> None:
                     "total_seams": r.total_seams,
                     "total_orphans": r.total_orphans,
                     "total_discoveries": r.total_discoveries,
+                    "warnings": r.warnings,
+                    "infos_dangling": r.infos_dangling,
                     "anchors_by_kind": r.anchors_by_kind,
                     "seams_by_kind": r.seams_by_kind,
                     "seams_by_grade": r.seams_by_grade,
