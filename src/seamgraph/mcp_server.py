@@ -17,24 +17,38 @@ surface is identical across the two, so nothing else has to branch.
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 from typing import Any
 
+#: Where each SDK generation keeps the high-level server class, newest first.
+_SERVER_LOCATIONS: tuple[tuple[str, str], ...] = (
+    ("mcp.server.mcpserver", "MCPServer"),  # mcp >= 2.0
+    ("mcp.server.fastmcp", "FastMCP"),  # mcp 1.2 - 1.x
+)
+
+
+def _resolve_server_class() -> Any:
+    """Return the installed SDK's high-level server class, or None.
+
+    Resolved dynamically on purpose. Static ``from mcp.server import ...``
+    statements make type checking depend on which SDK generation is installed:
+    a suppression one generation needs is reported as unused under the other,
+    so no single source file could pass strict mypy against both.
+    """
+    for module_name, attr in _SERVER_LOCATIONS:
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            continue
+        cls = getattr(module, attr, None)
+        if cls is not None:
+            return cls
+    return None
+
+
 #: The high-level server class, under whichever name this SDK generation uses.
-#: Bound by assignment rather than ``import ... as`` so there is exactly one
-#: definition of the name for type checkers to reason about.
-_Server: Any = None
-try:  # mcp >= 2.0
-    from mcp.server import mcpserver as _mcp2  # type: ignore[attr-defined]
-
-    _Server = _mcp2.MCPServer
-except ImportError:  # pragma: no cover - depends on the installed SDK
-    try:  # mcp 1.2 - 1.x
-        from mcp.server import fastmcp as _mcp1
-
-        _Server = _mcp1.FastMCP
-    except ImportError:
-        _Server = None
+_Server: Any = _resolve_server_class()
 
 HAS_MCP = _Server is not None
 
