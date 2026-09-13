@@ -206,10 +206,17 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
-    try:
-        from .mcp_server import run_server
-    except ImportError:
-        print("MCP support requires the 'mcp' extra: pip install seamgraph[mcp]", file=sys.stderr)
+    # Imported lazily so other commands never pay for loading the MCP SDK.
+    # Importing this module succeeds even without the SDK (the server class is
+    # resolved at runtime), so availability must be checked explicitly -- and
+    # before indexing, which would otherwise run only to end in a traceback.
+    from .mcp_server import HAS_MCP, run_server
+
+    if not HAS_MCP:
+        print(
+            "seamgraph serve needs the MCP SDK: pip install 'seamgraph[mcp]'",
+            file=sys.stderr,
+        )
         return 1
     run_server(Path(args.root).resolve())
     return 0

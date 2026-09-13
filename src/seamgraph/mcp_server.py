@@ -146,5 +146,8 @@ def run_server(root: Path) -> None:
     The repository is indexed (incrementally) at startup so the first tool call
     answers from a real graph instead of an empty one.
     """
+    if not HAS_MCP:
+        # fail before indexing: without the SDK there is nothing to serve
+        raise ImportError("MCP support requires: pip install 'seamgraph[mcp]'")
     api.index(root)
     create_server(root).run()

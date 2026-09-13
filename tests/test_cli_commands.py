@@ -165,3 +165,35 @@ export const dead = () => fetch("/api/does-not-exist");
     def test_strict_fails_on_the_same_repo(self, small_repo: Path) -> None:
         assert main(["--root", str(small_repo), "check"]) == 0
         assert main(["--root", str(small_repo), "check", "--strict"]) == 1
+
+
+class TestServeWithoutMcpExtra:
+    """`seamgraph serve` without the `[mcp]` extra must give an install hint.
+
+    Regression: importing the server module stopped failing when the SDK was
+    missing (the class is resolved at runtime), so the CLI's ImportError
+    handler never fired. A base `pip install seamgraph` indexed the current
+    directory and then crashed with a traceback.
+    """
+
+    def test_cli_prints_hint_and_does_not_index(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from seamgraph import mcp_server
+
+        monkeypatch.setattr(mcp_server, "HAS_MCP", False)
+        code = main(["--root", str(tmp_path), "serve"])
+        err = capsys.readouterr().err
+        assert code == 1
+        assert "pip install 'seamgraph[mcp]'" in err
+        assert not (tmp_path / ".seamgraph").exists(), "indexed before checking for the SDK"
+
+    def test_run_server_fails_before_indexing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from seamgraph import mcp_server
+
+        monkeypatch.setattr(mcp_server, "HAS_MCP", False)
+        with pytest.raises(ImportError, match=r"seamgraph\[mcp\]"):
+            mcp_server.run_server(tmp_path)
+        assert not (tmp_path / ".seamgraph").exists()

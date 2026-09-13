@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.1.0] — 2026-09-12
+## [0.1.0] — 2026-09-13
 
 First public release. Everything below is in that release; the list is grouped
 rather than split across versions because nothing before this was published.
@@ -94,3 +94,8 @@ fresh repositories and fixed what it found:
 - CI now builds the wheel *and* the sdist on every push and installs each into
   a clean virtualenv, running the CLI and the MCP server from the installed
   package.
+- `seamgraph serve` without the `[mcp]` extra prints an install hint and exits
+  1. It previously indexed the current directory and then crashed with a
+  traceback, because the check for the missing SDK had stopped firing.
+- Release builds refuse a tag that disagrees with the version in
+  `pyproject.toml`, since a version published to PyPI can never be reused.
