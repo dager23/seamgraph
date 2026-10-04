@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.1.0] — 2026-09-13
+## [0.1.0] — 2026-10-05
 
 First public release. Everything below is in that release; the list is grouped
 rather than split across versions because nothing before this was published.
