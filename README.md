@@ -1,5 +1,10 @@
 # seamgraph
 
+[![CI](https://github.com/dager23/seamgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/dager23/seamgraph/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/seamgraph.svg)](https://pypi.org/project/seamgraph/)
+[![Python versions](https://img.shields.io/pypi/pyversions/seamgraph.svg)](https://pypi.org/project/seamgraph/)
+[![License](https://img.shields.io/pypi/l/seamgraph.svg)](LICENSE)
+
 A deterministic graph of your repo's **seams** — the string-typed references
 connecting code to configs, templates, frontend calls, CI, and `.env` — served
 to coding agents via MCP + CLI, with every edge graded by evidence.
